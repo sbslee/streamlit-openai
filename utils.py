@@ -12,7 +12,7 @@ class EventHandler(openai.AssistantEventHandler):
         if self.current_container.empty or not self.current_container.last_block.iscategory("text"):
             self.current_container.add_block(Block("text"))
         self.current_container.last_block.content += delta.value
-        self.current_container.write_stream()
+        self.current_container.stream()
 
     def on_end(self):
         self.containers.append(self.current_container)
@@ -24,19 +24,11 @@ class Chat():
         self.containers = []
         self.assistant_id = assistant_id
         self.assistant = self.client.beta.assistants.retrieve(assistant_id)
-        self.thread = self.client.beta.threads.create(
-            messages=[{"role": "user", "content": "안녕하세요."}]
-        )
+        self.thread = self.client.beta.threads.create()
+        #     messages=[{"role": "user", "content": "안녕하세요."}]
+        # )
 
-    def write(self):
-        with self.client.beta.threads.runs.stream(
-            thread_id=self.thread.id,
-            assistant_id=self.assistant.id,
-            event_handler=EventHandler(self.containers),
-        ) as stream:
-            stream.until_done()
-
-    def add_user_input(self, content):
+    def respond(self, content):
         with st.chat_message("user"):
             st.markdown(content)
         self.client.beta.threads.messages.create(
@@ -47,6 +39,16 @@ class Chat():
         self.containers.append(
             Container("user", blocks=[Block("text", content)])
         )
+        with self.client.beta.threads.runs.stream(
+            thread_id=self.thread.id,
+            assistant_id=self.assistant.id,
+            event_handler=EventHandler(self.containers),
+        ) as stream:
+            stream.until_done()
+
+    def show(self):
+        for container in self.containers:
+            container.write()
 
 class Container():
     def __init__(self, role, blocks=None):
@@ -72,7 +74,7 @@ class Container():
         for block in self.blocks:
             block.write(self.role)
 
-    def write_stream(self):
+    def stream(self):
         with self.container:
             self.write()
 
