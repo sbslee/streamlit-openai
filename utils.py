@@ -3,26 +3,20 @@ import openai
 import os
 
 class EventHandler(openai.AssistantEventHandler):
-    def __init__(self):
+    def __init__(self, containers):
         super().__init__()
+        self.containers = containers
+        self.current_container = Container("assistant")
 
     def on_text_delta(self, delta, snapshot):
-        if self.container is None:
-            self.container = Container("assistant")
-        if not self.container.blocks or self.container.blocks[-1]['type'] != 'text':
-            self.container.blocks.append({'type': 'text', 'content': ""})
-        if self.show_quotation_marks:
-            if delta.annotations is not None:
-                for annotation in delta.annotations:
-                    if annotation.type == "file_citation":
-                        file = st.session_state.client.files.retrieve(annotation.file_citation.file_id)
-                        delta.value = delta.value.replace(annotation.text, f"""<a href="#" title="{file.filename}">[❞]</a>""")
-                    elif annotation.type == "file_path":
-                        file = st.session_state.client.files.retrieve(annotation.file_path.file_id)
-                        content = st.session_state.client.files.content(file.id)
-                        filename = os.path.basename(file.filename)
-                        self.container.code_interpreter_files[filename] = content.read()
-            self.container.blocks[-1]["content"] += delta.value
+        if self.current_container.empty or not self.current_container.last_block.iscategory("text"):
+            self.current_container.add_block(Block("text"))
+        self.current_container.last_block.content += delta.value
+        self.current_container.write_stream()
+
+    def on_end(self):
+        self.containers.append(self.current_container)
+        self.current_container = Container("assistant")
 
 class Chat():
     def __init__(self, assistant_id):
@@ -33,15 +27,26 @@ class Chat():
         self.thread = self.client.beta.threads.create(
             messages=[{"role": "user", "content": "안녕하세요."}]
         )
-        self.event_handler = EventHandler()
 
     def write(self):
         with self.client.beta.threads.runs.stream(
             thread_id=self.thread.id,
             assistant_id=self.assistant.id,
-            event_handler=self.event_handler,
+            event_handler=EventHandler(self.containers),
         ) as stream:
             stream.until_done()
+
+    def add_user_input(self, content):
+        with st.chat_message("user"):
+            st.markdown(content)
+        self.client.beta.threads.messages.create(
+            thread_id=self.thread.id,
+            role="user",
+            content=content,
+        )
+        self.containers.append(
+            Container("user", blocks=[Block("text", content)])
+        )
 
 class Container():
     def __init__(self, role, blocks=None):
@@ -49,15 +54,42 @@ class Container():
         self.role = role
         self.blocks = blocks
 
+    @property
+    def empty(self):
+        return self.blocks is None
+
+    @property
+    def last_block(self):
+        return None if self.empty else self.blocks[-1]
+
+    def add_block(self, block):
+        if self.empty:
+            self.blocks = [block]
+        else:
+            self.blocks.append(block)
+
     def write(self):
         for block in self.blocks:
-            block.write()
+            block.write(self.role)
+
+    def write_stream(self):
+        with self.container:
+            self.write()
 
 class Block():
-    def __init__(self, category, content):
+    def __init__(self, category, content=None):
         self.category = category
         self.content = content
 
-    def write(self):
-        if self.category == "text":
-            st.markdown(self.content)
+        if self.content is None:
+            self.content = ""
+        else:
+            self.content = content
+
+    def iscategory(self, category):
+        return self.category == category
+
+    def write(self, role):
+        with st.chat_message(role):
+            if self.category == "text":
+                st.markdown(self.content)
