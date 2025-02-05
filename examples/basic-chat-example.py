@@ -1,5 +1,6 @@
 import streamlit as st
-from streamlit_openai import BasicChat
+import streamlit_openai as so
+from streamlit_openai.functions import GenerateImage
 
 st.title("Basic Chat Example")
 
@@ -12,7 +13,8 @@ if not st.session_state.submitted:
         st.session_state.submitted = st.form_submit_button("Submit")
 else:
     if "chat" not in st.session_state:
-        st.session_state.chat = BasicChat(
-            openai_api_key=st.session_state.openai_api_key
+        st.session_state.chat = so.utils.BasicChat(
+            openai_api_key=st.session_state.openai_api_key,
+            functions=[GenerateImage],
         )
     st.session_state.chat.start()

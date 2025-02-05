@@ -1,16 +1,30 @@
 import streamlit as st
 import openai
 import os
+import json
 
 class Chat():
-    def __init__(self, openai_api_key=None):
+    def __init__(
+            self,
+            openai_api_key=None,
+            functions=None,
+    ):
         self.containers = []
+        self.functions = functions
+        self.tools = None
         self.openai_api_key = None
         self.client = None
+
         if openai_api_key is None:
             self.openai_api_key = os.getenv("OPENAI_API_KEY")
         else:
             self.openai_api_key = openai_api_key
+  
+        if self.functions is not None:
+            self.tools = []
+            for function in self.functions:
+                self.tools.append({"type": "function", "function": function.definition})
+  
         self.client = openai.OpenAI(api_key=self.openai_api_key)
 
     def start(self):
@@ -29,37 +43,107 @@ class BasicChat(Chat):
             self,
             openai_api_key=None,
             model="gpt-4o",
+            functions=None,
     ):
-        super().__init__(openai_api_key)
+        super().__init__(openai_api_key, functions)
         self.messages = []
         self.model = model
 
-    def respond(self, prompt):
+    def _respond1(self, prompt):
         self.messages.append({"role": "user", "content": prompt})
         current_container = Container("assistant")
-        response = self.client.chat.completions.create(
+        chunks = self.client.chat.completions.create(
             model=self.model,
-            messages=[
-                {"role": m["role"], "content": m["content"]}
-                for m in self.messages
-            ],
+            messages=self.messages,
             stream=True,
         )
-        if current_container.empty or not current_container.last_block.iscategory("text"):
-            current_container.add_block(Block("text"))
-        for chunk in response:
-            value = chunk.choices[0].delta.content
-            if value is not None:
-                current_container.last_block.content += value
-                current_container.stream()
+        self.messages.append({"role": "assistant", "content": chunks})
+        for x in chunks:
+            if x.choices[0].delta.content is not None:
+                if current_container.empty or not current_container.last_block.iscategory("text"):
+                    current_container.add_block(Block("text"))
+                current_container.last_block.content += x.choices[0].delta.content
+            current_container.stream()
         self.containers.append(current_container)
-        self.messages.append({"role": "assistant", "content": response})
+
+    def _respond2(self, prompt):
+        self.messages.append({"role": "user", "content": prompt})
+        current_container = Container("assistant")
+        chunks = self.client.chat.completions.create(
+            model=self.model,
+            messages=self.messages,
+            stream=True,
+            tools=self.tools,
+        )
+        self.messages.append({"role": "assistant", "content": chunks})
+        current_tool = {}
+        used_tools = {}
+        for x in chunks:
+            if x.choices[0].delta.content is not None:
+                if current_container.empty or not current_container.last_block.iscategory("text"):
+                    current_container.add_block(Block("text"))
+                current_container.last_block.content += x.choices[0].delta.content
+            current_container.stream()
+            if x.choices[0].finish_reason == 'tool_calls':
+                used_tools[current_tool["name"]] = current_tool
+                current_tool = {}
+            if x.choices[0].delta.tool_calls is not None:
+                if x.choices[0].delta.tool_calls[0].function.name is not None:
+                    if not current_tool or current_tool["name"] != x.choices[0].delta.tool_calls[0].function.name:
+                        current_tool = {
+                            "name": x.choices[0].delta.tool_calls[0].function.name,
+                            "id": x.choices[0].delta.tool_calls[0].id,
+                            "args": "",
+                        }
+                current_tool["args"] += x.choices[0].delta.tool_calls[0].function.arguments
+
+        for tool in used_tools:
+            self.messages.append({
+                "role": "assistant",
+                "tool_calls": [{
+                    "id": used_tools[tool]["id"],
+                    "type": "function",
+                    "function": {
+                        "name": used_tools[tool]["name"],
+                        "arguments": used_tools[tool]["args"],
+                    }
+                }]
+            })
+
+            result = [x for x in self.functions if x.definition["name"] == tool][0].function(**json.loads(used_tools[tool]["args"]))
+            self.messages.append({
+                "role": "tool",
+                "tool_call_id": used_tools[tool]["id"],
+                "content": result,
+            })
+
+        chunks = self.client.chat.completions.create(
+            model=self.model,
+            messages=self.messages,
+            stream=True,
+        )
+        self.messages.append({"role": "assistant", "content": chunks})
+
+        for x in chunks:
+            if x.choices[0].delta.content is not None:
+                if current_container.empty or not current_container.last_block.iscategory("text"):
+                    current_container.add_block(Block("text"))
+                current_container.last_block.content += x.choices[0].delta.content
+            current_container.stream()
+        self.containers.append(current_container)
+
+    def respond(self, prompt):
+        if self.functions is None:
+            self._respond1(prompt)
+        else:  
+            self._respond2(prompt)
 
 class AssistantChat(Chat):
     def __init__(
             self,
             openai_api_key=None,
             assistant_id=None,
+            functions=None,
     ):
         super().__init__(openai_api_key)
         self.assistant_id = None
@@ -106,8 +190,11 @@ class Container():
             self.blocks.append(block)
 
     def write(self):
-        for block in self.blocks:
-            block.write(self.role)
+        if self.empty:
+            pass
+        else:
+            for block in self.blocks:
+                block.write(self.role)
 
     def stream(self):
         with self.container:
