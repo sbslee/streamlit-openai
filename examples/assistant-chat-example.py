@@ -1,5 +1,6 @@
 import streamlit as st
 import streamlit_openai as so
+from streamlit_openai.functions import GenerateImage
 
 st.title("Assistant Chat Example")
 
@@ -16,5 +17,6 @@ else:
         st.session_state.chat = so.utils.AssistantChat(
             openai_api_key=st.session_state.openai_api_key,
             assistant_id=st.session_state.assistant_id,
+            functions=[GenerateImage],
         )
     st.session_state.chat.start()

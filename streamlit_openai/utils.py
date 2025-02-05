@@ -257,9 +257,8 @@ class EventHandler(openai.AssistantEventHandler):
     def handle_requires_action(self, data, run_id):
         tool_outputs = []
         for tool in data.required_action.submit_tool_outputs.tool_calls:
-            result = generate_image(**json.loads(tool.function.arguments))
+            result = st.session_state.chat.get_function(tool.function.name)(**json.loads(tool.function.arguments))
             tool_outputs.append({"tool_call_id": tool.id, "output": result})
-
         self.submit_tool_outputs(tool_outputs, run_id)
 
     def on_event(self, event):
