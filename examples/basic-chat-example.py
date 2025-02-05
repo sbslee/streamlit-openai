@@ -15,5 +15,4 @@ else:
         st.session_state.chat = BasicChat(
             openai_api_key=st.session_state.openai_api_key
         )
-
     st.session_state.chat.start()

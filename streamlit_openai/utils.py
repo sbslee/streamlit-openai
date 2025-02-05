@@ -7,18 +7,15 @@ class Chat():
         self.containers = []
         self.openai_api_key = None
         self.client = None
-
         if openai_api_key is None:
             self.openai_api_key = os.getenv("OPENAI_API_KEY")
         else:
             self.openai_api_key = openai_api_key
-
         self.client = openai.OpenAI(api_key=self.openai_api_key)
 
     def start(self):
         for container in self.containers:
             container.write()
-
         if prompt := st.chat_input():
             with st.chat_message("user"):
                 st.markdown(prompt)
@@ -31,8 +28,32 @@ class BasicChat(Chat):
     def __init__(
             self,
             openai_api_key=None,
+            model="gpt-4o",
     ):
         super().__init__(openai_api_key)
+        self.messages = []
+        self.model = model
+
+    def respond(self, prompt):
+        self.messages.append({"role": "user", "content": prompt})
+        current_container = Container("assistant")
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": m["role"], "content": m["content"]}
+                for m in self.messages
+            ],
+            stream=True,
+        )
+        if current_container.empty or not current_container.last_block.iscategory("text"):
+            current_container.add_block(Block("text"))
+        for chunk in response:
+            value = chunk.choices[0].delta.content
+            if value is not None:
+                current_container.last_block.content += value
+                current_container.stream()
+        self.containers.append(current_container)
+        self.messages.append({"role": "assistant", "content": response})
 
 class AssistantChat(Chat):
     def __init__(
@@ -45,12 +66,10 @@ class AssistantChat(Chat):
         self.assistant = None
         self.thread = None
         self.assistant_id = assistant_id
-
         if self.assistant_id is None:
             self.assistant = None
         else:
             self.assistant = self.client.beta.assistants.retrieve(self.assistant_id)
-
         self.thread = self.client.beta.threads.create()
  
     def respond(self, prompt):
