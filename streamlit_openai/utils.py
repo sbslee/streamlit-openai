@@ -100,39 +100,40 @@ class BasicChat(Chat):
                         }
                 current_tool["args"] += x.choices[0].delta.tool_calls[0].function.arguments
         if used_tools:
-            for tool in used_tools:
-                self.messages.append({
-                    "role": "assistant",
-                    "tool_calls": [{
-                        "id": used_tools[tool]["id"],
-                        "type": "function",
-                        "function": {
-                            "name": used_tools[tool]["name"],
-                            "arguments": used_tools[tool]["args"],
-                        }
-                    }]
-                })
+            with st.spinner(""):
+                for tool in used_tools:
+                    self.messages.append({
+                        "role": "assistant",
+                        "tool_calls": [{
+                            "id": used_tools[tool]["id"],
+                            "type": "function",
+                            "function": {
+                                "name": used_tools[tool]["name"],
+                                "arguments": used_tools[tool]["args"],
+                            }
+                        }]
+                    })
 
-                result = self.get_function(tool).function(**json.loads(used_tools[tool]["args"]))
-                self.messages.append({
-                    "role": "tool",
-                    "tool_call_id": used_tools[tool]["id"],
-                    "content": result,
-                })
+                    result = self.get_function(tool).function(**json.loads(used_tools[tool]["args"]))
+                    self.messages.append({
+                        "role": "tool",
+                        "tool_call_id": used_tools[tool]["id"],
+                        "content": result,
+                    })
 
-            chunks = self.client.chat.completions.create(
-                model=self.model,
-                messages=self.messages,
-                stream=True,
-            )
-            self.messages.append({"role": "assistant", "content": chunks})
+                chunks = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=self.messages,
+                    stream=True,
+                )
+                self.messages.append({"role": "assistant", "content": chunks})
 
             for x in chunks:
                 if x.choices[0].delta.content is not None:
                     if current_container.empty or not current_container.last_block.iscategory("text"):
                         current_container.add_block(Block("text"))
                     current_container.last_block.content += x.choices[0].delta.content
-                current_container.stream()
+            current_container.stream()
         self.containers.append(current_container)
 
     def respond(self, prompt):
@@ -196,8 +197,9 @@ class Container():
         if self.empty:
             pass
         else:
-            for block in self.blocks:
-                block.write(self.role)
+            with st.chat_message(self.role):
+                for block in self.blocks:
+                    block.write()
 
     def stream(self):
         with self.container:
@@ -216,10 +218,9 @@ class Block():
     def iscategory(self, category):
         return self.category == category
 
-    def write(self, role):
-        with st.chat_message(role):
-            if self.category == "text":
-                st.markdown(self.content)
+    def write(self):        
+        if self.category == "text":
+            st.markdown(self.content)
 
 class EventHandler(openai.AssistantEventHandler):
     def __init__(self, containers):
@@ -236,14 +237,7 @@ class EventHandler(openai.AssistantEventHandler):
     def on_tool_call_delta(self, delta, snapshot):
         if delta.type == "function":
             pass
-        elif delta.type == "code_interpreter":
-            if self.container is None:
-                self.container = Container("assistant", [], show_code_block=self.show_code_block, show_download_button=self.show_download_button)
-            if delta.code_interpreter.input:
-                if not self.container.blocks or self.container.blocks[-1]['type'] != 'code':
-                    self.container.blocks.append({'type': 'code', 'content': ""})
-                self.container.blocks[-1]["content"] += delta.code_interpreter.input
-            self.container.write_blocks(stream=True)
+            self.container.stream()
 
     def submit_tool_outputs(self, tool_outputs, run_id):
         with st.session_state.client.beta.threads.runs.submit_tool_outputs_stream(
