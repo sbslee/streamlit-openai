@@ -7,12 +7,14 @@ class Chat():
     def __init__(
             self,
             openai_api_key=None,
+            model="gpt-4o",
             functions=None,
     ):
         self.containers = []
         self.functions = functions
         self.tools = None
         self.openai_api_key = None
+        self.model = model
         self.client = None
 
         if openai_api_key is None:
@@ -48,9 +50,8 @@ class BasicChat(Chat):
             model="gpt-4o",
             functions=None,
     ):
-        super().__init__(openai_api_key, functions)
+        super().__init__(openai_api_key, model, functions)
         self.messages = []
-        self.model = model
 
     def _respond1(self, prompt):
         self.messages.append({"role": "user", "content": prompt})
@@ -146,16 +147,19 @@ class AssistantChat(Chat):
     def __init__(
             self,
             openai_api_key=None,
+            model="gpt-4o",
             assistant_id=None,
             functions=None,
     ):
-        super().__init__(openai_api_key, functions)
-        self.assistant_id = None
+        super().__init__(openai_api_key, model, functions)
+        self.assistant_id = assistant_id
         self.assistant = None
         self.thread = None
-        self.assistant_id = assistant_id
         if self.assistant_id is None:
-            self.assistant = None
+            self.assistant = self.client.beta.assistants.create(
+                model=self.model,
+                tools=self.tools,
+            )
         else:
             self.assistant = self.client.beta.assistants.retrieve(self.assistant_id)
         self.thread = self.client.beta.threads.create()
