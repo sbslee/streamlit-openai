@@ -54,9 +54,7 @@ class BasicChat(Chat):
         super().__init__(openai_api_key, model, functions)
         self.messages = []
 
-    def _respond1(self, prompt):
-        self.messages.append({"role": "user", "content": prompt})
-        self.current_container = Container("assistant")
+    def _respond1(self):
         chunks = self.client.chat.completions.create(
             model=self.model,
             messages=self.messages,
@@ -69,11 +67,8 @@ class BasicChat(Chat):
                     self.current_container.add_block(Block("text"))
                 self.current_container.last_block.content += x.choices[0].delta.content
             self.current_container.stream()
-        self.containers.append(self.current_container)
 
-    def _respond2(self, prompt):
-        self.messages.append({"role": "user", "content": prompt})
-        self.current_container = Container("assistant")
+    def _respond2(self):
         chunks = self.client.chat.completions.create(
             model=self.model,
             messages=self.messages,
@@ -102,33 +97,32 @@ class BasicChat(Chat):
                         }
                 current_tool["args"] += x.choices[0].delta.tool_calls[0].function.arguments
         if used_tools:
-            with st.spinner(""):
-                for tool in used_tools:
-                    self.messages.append({
-                        "role": "assistant",
-                        "tool_calls": [{
-                            "id": used_tools[tool]["id"],
-                            "type": "function",
-                            "function": {
-                                "name": used_tools[tool]["name"],
-                                "arguments": used_tools[tool]["args"],
-                            }
-                        }]
-                    })
+            for tool in used_tools:
+                self.messages.append({
+                    "role": "assistant",
+                    "tool_calls": [{
+                        "id": used_tools[tool]["id"],
+                        "type": "function",
+                        "function": {
+                            "name": used_tools[tool]["name"],
+                            "arguments": used_tools[tool]["args"],
+                        }
+                    }]
+                })
 
-                    result = self.get_function(tool).function(**json.loads(used_tools[tool]["args"]))
-                    self.messages.append({
-                        "role": "tool",
-                        "tool_call_id": used_tools[tool]["id"],
-                        "content": result,
-                    })
+                result = self.get_function(tool).function(**json.loads(used_tools[tool]["args"]))
+                self.messages.append({
+                    "role": "tool",
+                    "tool_call_id": used_tools[tool]["id"],
+                    "content": result,
+                })
 
-                chunks = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=self.messages,
-                    stream=True,
-                )
-                self.messages.append({"role": "assistant", "content": chunks})
+            chunks = self.client.chat.completions.create(
+                model=self.model,
+                messages=self.messages,
+                stream=True,
+            )
+            self.messages.append({"role": "assistant", "content": chunks})
 
             for x in chunks:
                 if x.choices[0].delta.content is not None:
@@ -136,13 +130,16 @@ class BasicChat(Chat):
                         self.current_container.add_block(Block("text"))
                     self.current_container.last_block.content += x.choices[0].delta.content
             self.current_container.stream()
-        self.containers.append(self.current_container)
+        
 
     def respond(self, prompt):
+        self.current_container = Container("assistant")
+        self.messages.append({"role": "user", "content": prompt})
         if self.functions is None:
-            self._respond1(prompt)
+            self._respond1()
         else:  
-            self._respond2(prompt)
+            self._respond2()
+        self.containers.append(self.current_container)
 
 class AssistantChat(Chat):
     def __init__(
@@ -166,6 +163,7 @@ class AssistantChat(Chat):
         self.thread = self.client.beta.threads.create()
  
     def respond(self, prompt):
+        self.current_container = Container("assistant")
         self.client.beta.threads.messages.create(
             thread_id=self.thread.id,
             role="user",
@@ -177,6 +175,7 @@ class AssistantChat(Chat):
             assistant_id=self.assistant.id,
         ) as stream:
             stream.until_done()
+        self.containers.append(self.current_container)
 
 class Container():
     def __init__(self, role, blocks=None):
@@ -230,25 +229,23 @@ class Block():
 class EventHandler(openai.AssistantEventHandler):
     def __init__(self):
         super().__init__()
-        self.current_container = Container("assistant")
 
     def on_text_delta(self, delta, snapshot):
-        if self.current_container.empty or not self.current_container.last_block.iscategory("text"):
-            self.current_container.add_block(Block("text"))
-        self.current_container.last_block.content += delta.value
-        self.current_container.stream()
+        if st.session_state.chat.current_container.empty or not st.session_state.chat.current_container.last_block.iscategory("text"):
+            st.session_state.chat.current_container.add_block(Block("text"))
+        st.session_state.chat.current_container.last_block.content += delta.value
+        st.session_state.chat.current_container.stream()
 
     def on_tool_call_delta(self, delta, snapshot):
         if delta.type == "function":
-            pass
-            self.current_container.stream()
+            st.session_state.chat.current_container.stream()
 
     def submit_tool_outputs(self, tool_outputs, run_id):
         with st.session_state.chat.client.beta.threads.runs.submit_tool_outputs_stream(
             thread_id=self.current_run.thread_id,
             run_id=self.current_run.id,
             tool_outputs=tool_outputs,
-            event_handler=EventHandler(self.current_container),
+            event_handler=EventHandler(),
         ) as stream:
             stream.until_done()
 
@@ -264,6 +261,5 @@ class EventHandler(openai.AssistantEventHandler):
             run_id = event.data.id
             self.handle_requires_action(event.data, run_id)
 
-    def on_end(self):
-        st.session_state.chat.containers.append(self.current_container)
-        self.current_container = Container("assistant")
+    # def on_end(self):
+    #     st.session_state.chat.containers.append(st.session_state.chat.current_container)
