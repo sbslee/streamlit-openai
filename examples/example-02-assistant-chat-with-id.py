@@ -1,7 +1,7 @@
 import streamlit as st
-from streamlit_openai import AssistantChat
+import streamlit_openai as so
 
-st.title("Assistant Chat Example")
+st.title("Example 2: Assistant Chat with ID")
 
 if "submitted" not in st.session_state:
     st.session_state.submitted = False
@@ -13,7 +13,7 @@ if not st.session_state.submitted:
         st.session_state.submitted = st.form_submit_button("Submit")
 else:
     if "chat" not in st.session_state:
-        st.session_state.chat = AssistantChat(
+        st.session_state.chat = so.utils.AssistantChat(
             openai_api_key=st.session_state.openai_api_key,
             assistant_id=st.session_state.assistant_id,
         )
