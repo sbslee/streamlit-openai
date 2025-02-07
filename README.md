@@ -8,18 +8,24 @@ $ pip install streamlit-openai
 
 ## Usage
 
+Export your OpenAI API key:
+
+```
+$ export OPENAI_API_KEY='sk-...'
+```
+
 Save the following code to `app.py`:
 
 ```
 import streamlit as st
-import streamlit_openai as so
+import streamlit_openai
 
 if "chat" not in st.session_state:
     # Use Chat Completions API
-    st.session_state.chat = so.utils.BasicChat()
+    st.session_state.chat = streamlit_openai.utils.BasicChat()
 
     # Alternatively, use Assistants API
-    # st.session_state.chat = so.utils.AssistantChat()
+    # st.session_state.chat = streamlit_openai.utils.AssistantChat()
 
 st.session_state.chat.start()
 ```
