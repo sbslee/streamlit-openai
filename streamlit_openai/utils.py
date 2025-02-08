@@ -264,6 +264,3 @@ class EventHandler(openai.AssistantEventHandler):
         if event.event == 'thread.run.requires_action':
             run_id = event.data.id
             self.handle_requires_action(event.data, run_id)
-
-    # def on_end(self):
-    #     st.session_state.chat.containers.append(st.session_state.chat.current_container)
