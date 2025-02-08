@@ -31,7 +31,7 @@ class GenerateImage:
 
 class SearchWeb:
     definition = {
-        "name": "retrieve_from_web",
+        "name": "search_web",
         "description": """Answer a question based on the content of a web search result. Do not use this function unless the user has explicitly requested to retrieve data from the web. For example, if the prompt is "What is the capital of France?", you must not use this function. However, if the prompt is "What is the capital of France? Search the web for the answer.", you can use this function.""",
         "parameters": {
             "type": "object",
