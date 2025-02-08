@@ -2,6 +2,8 @@ import streamlit as st
 import openai
 import os
 import json
+import tempfile
+from pathlib import Path
 
 class Chat():
     def __init__(
@@ -9,6 +11,7 @@ class Chat():
             openai_api_key=None,
             model="gpt-4o",
             functions=None,
+            file_search=False,
     ):
         self.containers = []
         self.current_container = None
@@ -18,20 +21,26 @@ class Chat():
         self.model = model
         self.client = None
         self.uploaded_files = None
+        self.upload_ids = {}
+        self.file_search = file_search
         
         if openai_api_key is None:
             self.openai_api_key = os.getenv("OPENAI_API_KEY")
         else:
             self.openai_api_key = openai_api_key
-  
-        if self.functions is not None:
+
+        if self.file_search or self.functions is not None:
             self.tools = []
-            for function in self.functions:
-                self.tools.append({"type": "function", "function": function.definition})
-  
+            if self.functions is not None:
+                for function in self.functions:
+                    self.tools.append({"type": "function", "function": function.definition})
+            if self.file_search:
+                self.tools.append({"type": "file_search"})
+
         self.client = openai.OpenAI(api_key=self.openai_api_key)
 
     def start(self):
+        self.handle_uploaded_files()
         for container in self.containers:
             container.write()
         if prompt := st.chat_input():
@@ -48,14 +57,18 @@ class Chat():
     def upload_files(self, uploaded_files):
         self.uploaded_files = uploaded_files
 
+    def handle_uploaded_file(self):
+        pass
+
 class BasicChat(Chat):
     def __init__(
             self,
             openai_api_key=None,
             model="gpt-4o",
             functions=None,
+            file_search=False,
     ):
-        super().__init__(openai_api_key, model, functions)
+        super().__init__(openai_api_key, model, functions, file_search)
         self.messages = []
 
     def _respond1(self):
@@ -135,7 +148,6 @@ class BasicChat(Chat):
                     self.current_container.last_block.content += x.choices[0].delta.content
             self.current_container.stream()
         
-
     def respond(self, prompt):
         self.current_container = Container("assistant")
         self.messages.append({"role": "user", "content": prompt})
@@ -152,8 +164,9 @@ class AssistantChat(Chat):
             model="gpt-4o",
             assistant_id=None,
             functions=None,
+            file_search=False,
     ):
-        super().__init__(openai_api_key, model, functions)
+        super().__init__(openai_api_key, model, functions, file_search)
         self.assistant_id = assistant_id
         self.assistant = None
         self.thread = None
@@ -180,6 +193,26 @@ class AssistantChat(Chat):
         ) as stream:
             stream.until_done()
         self.containers.append(self.current_container)
+
+    def handle_uploaded_files(self):
+        if self.uploaded_files is not None:
+            for uploaded_file in self.uploaded_files:
+                if uploaded_file.file_id in self.upload_ids:
+                    continue
+                with tempfile.TemporaryDirectory() as t:
+                    file_path = os.path.join(t, uploaded_file.name)
+                    with open(file_path, "wb") as f:
+                        f.write(uploaded_file.getvalue())
+                    openai_file = self.client.files.create(file=Path(file_path), purpose="assistants")
+
+                    self.client.beta.threads.messages.create(
+                        thread_id=self.thread.id,
+                        role="user",
+                        content="Don't do anything with this file yet.",
+                        attachments=[{"file_id": openai_file.id, "tools": [{"type": "file_search"}]}]
+                    )
+
+                    self.upload_ids[uploaded_file.file_id] = {'file_id': openai_file.id, 'file_name': uploaded_file.name}
 
 class Container():
     def __init__(self, role, blocks=None):
