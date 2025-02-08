@@ -1,5 +1,5 @@
 import streamlit as st
-import streamlit_openai as so
+import streamlit_openai
 
 st.title("Example 2: Assistant Chat with ID")
 
@@ -15,7 +15,7 @@ if not st.session_state.submitted:
             st.rerun()
 else:
     if "chat" not in st.session_state:
-        st.session_state.chat = so.utils.AssistantChat(
+        st.session_state.chat = streamlit_openai.utils.AssistantChat(
             openai_api_key=st.session_state.openai_api_key,
             assistant_id=st.session_state.assistant_id,
         )
