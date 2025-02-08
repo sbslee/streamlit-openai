@@ -17,6 +17,7 @@ class Chat():
         self.openai_api_key = None
         self.model = model
         self.client = None
+        self.uploaded_files = None
         
         if openai_api_key is None:
             self.openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -43,6 +44,9 @@ class Chat():
 
     def get_function(self, name):
         return [x for x in self.functions if x.definition["name"] == name][0]
+
+    def upload_files(self, uploaded_files):
+        self.uploaded_files = uploaded_files
 
 class BasicChat(Chat):
     def __init__(
