@@ -108,10 +108,7 @@ class BasicChat(Chat):
         self.messages.append({"role": "assistant", "content": chunks})
         for x in chunks:
             if x.choices[0].delta.content is not None:
-                if self.current_container.empty or not self.current_container.last_block.iscategory("text"):
-                    self.current_container.add_block(Block("text"))
-                self.current_container.last_block.content += x.choices[0].delta.content
-            self.current_container.stream()
+                self.current_container.update_and_stream("text", x.choices[0].delta.content)
 
     def _respond2(self):
         chunks = self.client.chat.completions.create(
@@ -125,10 +122,7 @@ class BasicChat(Chat):
         used_tools = {}
         for x in chunks:
             if x.choices[0].delta.content is not None:
-                if self.current_container.empty or not self.current_container.last_block.iscategory("text"):
-                    self.current_container.add_block(Block("text"))
-                self.current_container.last_block.content += x.choices[0].delta.content
-            self.current_container.stream()
+                self.current_container.update_and_stream("text", x.choices[0].delta.content)
             if x.choices[0].finish_reason == 'tool_calls':
                 used_tools[current_tool["name"]] = current_tool
                 current_tool = {}
@@ -171,10 +165,7 @@ class BasicChat(Chat):
 
             for x in chunks:
                 if x.choices[0].delta.content is not None:
-                    if self.current_container.empty or not self.current_container.last_block.iscategory("text"):
-                        self.current_container.add_block(Block("text"))
-                    self.current_container.last_block.content += x.choices[0].delta.content
-            self.current_container.stream()
+                    self.current_container.update_and_stream("text", x.choices[0].delta.content)
         
     def respond(self, prompt):
         self.current_container = Container("assistant")
@@ -279,13 +270,13 @@ class Container():
     def last_block(self):
         return None if self.empty else self.blocks[-1]
 
-    def add_block(self, block):
+    def update(self, category, content):
         if self.empty:
-            self.blocks = [block]
-        elif self.last_block.iscategory(block.category):
-            pass
+            self.blocks = [Block(category, content)]
+        elif self.last_block.iscategory(category):
+            self.last_block.content += content
         else:
-            self.blocks.append(block)
+            self.blocks.append(Block(category, content))
 
     def write(self):
         if self.empty:
@@ -294,6 +285,10 @@ class Container():
             with st.chat_message(self.role):
                 for block in self.blocks:
                     block.write()
+
+    def update_and_stream(self, category, content):
+        self.update(category, content)
+        self.stream()
 
     def stream(self):
         with self.container:
@@ -323,28 +318,22 @@ class Block():
 class EventHandler(openai.AssistantEventHandler):
     def __init__(self):
         super().__init__()
-        self.cc = st.session_state.chat.current_container
+        self.current_container = st.session_state.chat.current_container
 
     def on_text_delta(self, delta, snapshot):
-        self.cc.add_block(Block("text"))
-        self.cc.last_block.content += delta.value
-        self.cc.stream()
+        self.current_container.update_and_stream("text", delta.value)
 
     def on_tool_call_delta(self, delta, snapshot):
         if delta.type == "function":
-            self.cc.stream()
+            self.current_container.stream()
         elif delta.type == "code_interpreter":
             if delta.code_interpreter.input:
-                self.cc.add_block(Block("code"))
-                self.cc.last_block.content += delta.code_interpreter.input
-            self.cc.stream()
+                self.current_container.update_and_stream("code", delta.code_interpreter.input)
 
     def on_image_file_done(self, image_file):
-        self.cc.add_block(Block("image"))
         image_data = st.session_state.chat.client.files.content(image_file.file_id)
         image_data_bytes = image_data.read()
-        self.cc.last_block.content = image_data_bytes
-        self.cc.stream()
+        self.current_container.update_and_stream("image", image_data_bytes)
 
     def submit_tool_outputs(self, tool_outputs, run_id):
         with st.session_state.chat.client.beta.threads.runs.submit_tool_outputs_stream(
