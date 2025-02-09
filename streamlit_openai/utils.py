@@ -229,22 +229,23 @@ class AssistantChat(Chat):
         self.containers.append(self.current_container)
 
     def handle_files(self):
-        if self.st_files is not None:
-            for st_file in self.st_files:
-                if self.is_tracking(st_file):
-                    continue
-                with tempfile.TemporaryDirectory() as t:
-                    file_path = os.path.join(t, st_file.name)
-                    with open(file_path, "wb") as f:
-                        f.write(st_file.getvalue())
-                    openai_file = self.client.files.create(file=Path(file_path), purpose="assistants")
-                    self.client.beta.threads.messages.create(
-                        thread_id=self.thread.id,
-                        role="user",    
-                        content="Don't do anything with this file yet.",
-                        attachments=[{"file_id": openai_file.id, "tools": [{"type": "file_search"}]}]
-                    )
-                    self.tracked_files.append(TrackedFile(st_file, openai_file))
+        if self.st_files is None:
+            return
+
+        # Handle file uploads
+        for st_file in self.st_files:
+            if self.is_tracking(st_file):
+                continue
+            tracked_file = TrackedFile(st_file)
+            tracked_file.to_openai()
+            self.tracked_files.append(tracked_file)
+
+        # Handle file removals
+        for tracked_file in self.tracked_files:
+            if tracked_file.removed:
+                continue
+            if tracked_file.st_file.file_id not in [x.file_id for x in self.st_files]:
+                tracked_file.remove()
 
 class Container():
     def __init__(self, role, blocks=None):
@@ -331,6 +332,29 @@ class EventHandler(openai.AssistantEventHandler):
             self.handle_requires_action(event.data, run_id)
 
 class TrackedFile():
-    def __init__(self, st_file, openai_file):
+    def __init__(self, st_file):
         self.st_file = st_file
-        self.openai_file = openai_file
+        self.openai_file = None
+        self.removed = False
+
+    def to_openai(self):
+        with tempfile.TemporaryDirectory() as t:
+            file_path = os.path.join(t, self.st_file.name)
+            with open(file_path, "wb") as f:
+                f.write(self.st_file.getvalue())
+            self.openai_file = st.session_state.chat.client.files.create(file=Path(file_path), purpose="assistants")
+            st.session_state.chat.client.beta.threads.messages.create(
+                thread_id=st.session_state.chat.thread.id,
+                role="user",    
+                content=f"File uploaded: {self.st_file.name}",
+                attachments=[{"file_id": self.openai_file.id, "tools": [{"type": "file_search"}]}]
+            )
+
+    def remove(self):
+        st.session_state.chat.client.files.delete(self.openai_file.id)
+        st.session_state.chat.client.beta.threads.messages.create(
+            thread_id=st.session_state.chat.thread.id,
+            role="user",
+            content=f"File removed: {self.st_file.name}",
+        )
+        self.removed = True
