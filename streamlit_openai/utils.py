@@ -5,6 +5,20 @@ import json
 import tempfile
 from pathlib import Path
 
+SUPPORTED_FILES = {
+    "file_search": [
+        ".c", ".cs", ".cpp", ".doc", ".docx", ".html", ".java", 
+        ".json", ".md", ".pdf", ".php", ".pptx", ".py", ".rb", 
+        ".texv", ".txt", ".css", ".js", ".sh", ".ts"
+    ],
+    "code_interpreter": [
+        ".c", ".cs", ".cpp", ".doc", ".docx", ".html", ".java", 
+        ".json", ".md", ".pdf", ".php", ".pptx", ".py", ".rb", 
+        ".tex", ".txt", ".css", ".js", ".sh", ".ts", ".csv", ".jpeg", 
+        ".jpg", ".gif", ".png", ".tar", ".xlsx", ".xml", ".zip"
+    ]
+}
+
 class Chat():
     def __init__(
             self,
@@ -20,8 +34,8 @@ class Chat():
         self.openai_api_key = None
         self.model = model
         self.client = None
-        self.uploaded_files = None
-        self.upload_ids = {}
+        self.st_files = None
+        self.tracked_files = []
         self.file_search = file_search
         
         if openai_api_key is None:
@@ -40,7 +54,7 @@ class Chat():
         self.client = openai.OpenAI(api_key=self.openai_api_key)
 
     def start(self):
-        self.handle_uploaded_files()
+        self.handle_files()
         for container in self.containers:
             container.write()
         if prompt := st.chat_input():
@@ -55,11 +69,14 @@ class Chat():
         return [x for x in self.functions if x.definition["name"] == name][0]
 
     def upload_files(self, uploaded_files):
-        self.uploaded_files = uploaded_files
+        self.st_files = uploaded_files
 
-    def handle_uploaded_file(self):
+    def handle_files(self):
         pass
 
+    def is_tracking(self, st_file):
+        return st_file.file_id in [x.st_file.file_id for x in self.tracked_files]
+    
 class BasicChat(Chat):
     def __init__(
             self,
@@ -158,10 +175,26 @@ class BasicChat(Chat):
         self.containers.append(self.current_container)
 
 class AssistantChat(Chat):
+    """
+    A class to represent an Assistant Chat.
+
+    There are two ways to create an instance of this class:
+    1. By providing an `assistant_id`, in which case the class will be created by retrieving an existing assistant from the OpenAI server.
+    2. If `assistant_id` is not provided, the class will be created by creating a new assistant.
+
+    Attributes:
+        openai_api_key (str): The API key for OpenAI.
+        model (str): The model to be used.
+        name (str): The name of the assistant.
+        assistant_id (str): The ID of the assistant.
+        functions (list): The functions to be used.
+        file_search (bool): Whether to enable File Search.
+    """
     def __init__(
             self,
             openai_api_key=None,
             model="gpt-4o",
+            name=None,
             assistant_id=None,
             functions=None,
             file_search=False,
@@ -172,6 +205,7 @@ class AssistantChat(Chat):
         self.thread = None
         if self.assistant_id is None:
             self.assistant = self.client.beta.assistants.create(
+                name=name,
                 model=self.model,
                 tools=self.tools,
             )
@@ -194,25 +228,23 @@ class AssistantChat(Chat):
             stream.until_done()
         self.containers.append(self.current_container)
 
-    def handle_uploaded_files(self):
-        if self.uploaded_files is not None:
-            for uploaded_file in self.uploaded_files:
-                if uploaded_file.file_id in self.upload_ids:
+    def handle_files(self):
+        if self.st_files is not None:
+            for st_file in self.st_files:
+                if self.is_tracking(st_file):
                     continue
                 with tempfile.TemporaryDirectory() as t:
-                    file_path = os.path.join(t, uploaded_file.name)
+                    file_path = os.path.join(t, st_file.name)
                     with open(file_path, "wb") as f:
-                        f.write(uploaded_file.getvalue())
+                        f.write(st_file.getvalue())
                     openai_file = self.client.files.create(file=Path(file_path), purpose="assistants")
-
                     self.client.beta.threads.messages.create(
                         thread_id=self.thread.id,
-                        role="user",
+                        role="user",    
                         content="Don't do anything with this file yet.",
                         attachments=[{"file_id": openai_file.id, "tools": [{"type": "file_search"}]}]
                     )
-
-                    self.upload_ids[uploaded_file.file_id] = {'file_id': openai_file.id, 'file_name': uploaded_file.name}
+                    self.tracked_files.append(TrackedFile(st_file, openai_file))
 
 class Container():
     def __init__(self, role, blocks=None):
@@ -297,3 +329,8 @@ class EventHandler(openai.AssistantEventHandler):
         if event.event == 'thread.run.requires_action':
             run_id = event.data.id
             self.handle_requires_action(event.data, run_id)
+
+class TrackedFile():
+    def __init__(self, st_file, openai_file):
+        self.st_file = st_file
+        self.openai_file = openai_file
