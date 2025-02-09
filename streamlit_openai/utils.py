@@ -258,7 +258,7 @@ class AssistantChat(Chat):
 
 class Container():
     def __init__(self, role, blocks=None):
-        self.container = st.empty()
+        self.delta_generator = st.empty()
         self.role = role
         self.blocks = blocks
 
@@ -294,7 +294,7 @@ class Container():
         self.stream()
 
     def stream(self):
-        with self.container:
+        with self.delta_generator:
             self.write()
 
 class Block():
