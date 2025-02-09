@@ -26,6 +26,7 @@ class Chat():
             model="gpt-4o",
             functions=None,
             file_search=False,
+            code_interpreter=False,
     ):
         self.containers = []
         self.current_container = None
@@ -37,19 +38,22 @@ class Chat():
         self.st_files = None
         self.tracked_files = []
         self.file_search = file_search
+        self.code_interpreter = code_interpreter
         
         if openai_api_key is None:
             self.openai_api_key = os.getenv("OPENAI_API_KEY")
         else:
             self.openai_api_key = openai_api_key
 
-        if self.file_search or self.functions is not None:
+        if self.file_search or self.code_interpreter or self.functions is not None:
             self.tools = []
-            if self.functions is not None:
-                for function in self.functions:
-                    self.tools.append({"type": "function", "function": function.definition})
-            if self.file_search:
-                self.tools.append({"type": "file_search"})
+        if self.file_search:
+            self.tools.append({"type": "file_search"})
+        if self.code_interpreter:
+            self.tools.append({"type": "code_interpreter"})
+        if self.functions is not None:
+            for function in self.functions:
+                self.tools.append({"type": "function", "function": function.definition})
 
         self.client = openai.OpenAI(api_key=self.openai_api_key)
 
@@ -84,8 +88,15 @@ class BasicChat(Chat):
             model="gpt-4o",
             functions=None,
             file_search=False,
+            code_interpreter=False,
     ):
-        super().__init__(openai_api_key, model, functions, file_search)
+        super().__init__(
+            openai_api_key,
+            model,
+            functions,
+            file_search,
+            code_interpreter
+        )
         self.messages = []
 
     def _respond1(self):
@@ -198,8 +209,15 @@ class AssistantChat(Chat):
             assistant_id=None,
             functions=None,
             file_search=False,
+            code_interpreter=False,
     ):
-        super().__init__(openai_api_key, model, functions, file_search)
+        super().__init__(
+            openai_api_key,
+            model,
+            functions,
+            file_search,
+            code_interpreter
+        )
         self.assistant_id = assistant_id
         self.assistant = None
         self.thread = None
@@ -264,6 +282,8 @@ class Container():
     def add_block(self, block):
         if self.empty:
             self.blocks = [block]
+        elif self.last_block.iscategory(block.category):
+            pass
         else:
             self.blocks.append(block)
 
@@ -295,20 +315,36 @@ class Block():
     def write(self):        
         if self.category == "text":
             st.markdown(self.content)
+        elif self.category == "code":
+            st.code(self.content)
+        elif self.category == "image":
+            st.image(self.content)
 
 class EventHandler(openai.AssistantEventHandler):
     def __init__(self):
         super().__init__()
+        self.cc = st.session_state.chat.current_container
 
     def on_text_delta(self, delta, snapshot):
-        if st.session_state.chat.current_container.empty or not st.session_state.chat.current_container.last_block.iscategory("text"):
-            st.session_state.chat.current_container.add_block(Block("text"))
-        st.session_state.chat.current_container.last_block.content += delta.value
-        st.session_state.chat.current_container.stream()
+        self.cc.add_block(Block("text"))
+        self.cc.last_block.content += delta.value
+        self.cc.stream()
 
     def on_tool_call_delta(self, delta, snapshot):
         if delta.type == "function":
-            st.session_state.chat.current_container.stream()
+            self.cc.stream()
+        elif delta.type == "code_interpreter":
+            if delta.code_interpreter.input:
+                self.cc.add_block(Block("code"))
+                self.cc.last_block.content += delta.code_interpreter.input
+            self.cc.stream()
+
+    def on_image_file_done(self, image_file):
+        self.cc.add_block(Block("image"))
+        image_data = st.session_state.chat.client.files.content(image_file.file_id)
+        image_data_bytes = image_data.read()
+        self.cc.last_block.content = image_data_bytes
+        self.cc.stream()
 
     def submit_tool_outputs(self, tool_outputs, run_id):
         with st.session_state.chat.client.beta.threads.runs.submit_tool_outputs_stream(
