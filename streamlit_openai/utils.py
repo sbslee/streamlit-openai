@@ -262,6 +262,9 @@ class Container():
         self.role = role
         self.blocks = blocks
 
+    def __repr__(self):
+        return f"Container('{self.role}', {self.blocks})"
+
     @property
     def empty(self):
         return self.blocks is None
@@ -304,6 +307,15 @@ class Block():
         else:
             self.content = content
 
+    def __repr__(self):
+        if self.category == "text" or self.category == "code":
+            content = self.content
+            if len(content) > 50:
+                content = content[:30] + "..."
+        elif self.category == "image":
+            content = "Bytes"
+        return f"Block('{self.category}', '{content}')"
+
     def iscategory(self, category):
         return self.category == category
 
@@ -321,7 +333,8 @@ class EventHandler(openai.AssistantEventHandler):
         self.current_container = st.session_state.chat.current_container
 
     def on_text_delta(self, delta, snapshot):
-        self.current_container.update_and_stream("text", delta.value)
+        if delta.value:
+            self.current_container.update_and_stream("text", delta.value)
 
     def on_tool_call_delta(self, delta, snapshot):
         if delta.type == "function":
