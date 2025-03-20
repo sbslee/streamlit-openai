@@ -35,7 +35,6 @@ class Chat():
         self.api_key = None
         self.model = model
         self.client = None
-        self.st_files = None
         self.tracked_files = []
         self.file_search = file_search
         self.code_interpreter = code_interpreter
@@ -58,8 +57,7 @@ class Chat():
         self.client = openai.OpenAI(api_key=self.api_key)
 
     def run(self, uploaded_files=None):
-        self.st_files = uploaded_files
-        self.handle_files()
+        self.handle_files(uploaded_files)
         for container in self.containers:
             container.write()
         if prompt := st.chat_input():
@@ -73,11 +71,11 @@ class Chat():
     def get_function(self, name):
         return [x for x in self.functions if x.definition["name"] == name][0]
 
-    def handle_files(self):
+    def handle_files(self, uploaded_files) -> None:
         pass
 
-    def is_tracking(self, st_file):
-        return st_file.file_id in [x.st_file.file_id for x in self.tracked_files]
+    def is_tracking(self, uploaded_file):
+        return uploaded_file.file_id in [x.uploaded_file.file_id for x in self.tracked_files]
     
 class CompletionChat(Chat):
     def __init__(
@@ -235,24 +233,29 @@ class AssistantChat(Chat):
             stream.until_done()
         self.containers.append(self.current_container)
 
-    def handle_files(self):
-        if self.st_files is None:
-            return
-
+    def handle_files(self, uploaded_files) -> None:
         # Handle file uploads
-        for st_file in self.st_files:
-            if self.is_tracking(st_file):
-                continue
-            tracked_file = TrackedFile(st_file)
-            tracked_file.to_openai()
-            self.tracked_files.append(tracked_file)
+        if uploaded_files is None:
+            return
+        else:
+            for uploaded_file in uploaded_files:
+                if self.is_tracking(uploaded_file):
+                    continue
+                tracked_file = TrackedFile(uploaded_file)
+                tracked_file.to_openai()
+                self.tracked_files.append(tracked_file)
 
         # Handle file removals
         for tracked_file in self.tracked_files:
             if tracked_file.removed:
                 continue
-            if tracked_file.st_file.file_id not in [x.file_id for x in self.st_files]:
-                tracked_file.remove()
+            else:
+                if uploaded_files is None:
+                    tracked_file.remove()
+                elif tracked_file.uploaded_file.file_id not in [x.file_id for x in uploaded_files]:
+                    tracked_file.remove()
+                else:
+                    continue
 
 class Container():
     def __init__(self, role, blocks=None):
@@ -372,33 +375,38 @@ class TrackedFile():
     A class to represent a file that is tracked and managed within the OpenAI and Streamlit integration.
 
     Attributes:
-        st_file (UploadedFile): The UploadedFile object created by Streamlit.
+        uploaded_file (UploadedFile): The UploadedFile object created by Streamlit.
         openai_file (File): The File object created by OpenAI.
         removed (bool): A flag indicating whether the file has been removed.
     """
-    def __init__(self, st_file: UploadedFile):
-        self.st_file = st_file
+    def __init__(self, uploaded_file: UploadedFile) -> None:
+        self.uploaded_file = uploaded_file
         self.openai_file = None
         self.removed = False
 
-    def to_openai(self):
+    def __repr__(self):
+        return f"TrackedFile(uploaded_file='{self.uploaded_file.name}', deleted={self.removed})"
+
+    def to_openai(self) -> None:
         with tempfile.TemporaryDirectory() as t:
-            file_path = os.path.join(t, self.st_file.name)
+            file_path = os.path.join(t, self.uploaded_file.name)
             with open(file_path, "wb") as f:
-                f.write(self.st_file.getvalue())
+                f.write(self.uploaded_file.getvalue())
             self.openai_file = st.session_state.chat.client.files.create(file=Path(file_path), purpose="assistants")
             st.session_state.chat.client.beta.threads.messages.create(
                 thread_id=st.session_state.chat.thread.id,
                 role="user",    
-                content=f"File uploaded: {self.st_file.name}",
+                content=f"File uploaded: {self.uploaded_file.name}",
                 attachments=[{"file_id": self.openai_file.id, "tools": [{"type": "file_search"}]}]
             )
 
-    def remove(self):
-        st.session_state.chat.client.files.delete(self.openai_file.id)
+    def remove(self) -> None:
+        response = st.session_state.chat.client.files.delete(self.openai_file.id)
+        if not response.deleted:
+            raise ValueError("File could not be deleted from OpenAI: ", self.uploaded_file.name)
         st.session_state.chat.client.beta.threads.messages.create(
             thread_id=st.session_state.chat.thread.id,
             role="user",
-            content=f"File removed: {self.st_file.name}",
+            content=f"File removed: {self.uploaded_file.name}",
         )
         self.removed = True
