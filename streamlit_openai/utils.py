@@ -264,7 +264,7 @@ class Container():
         self.blocks = blocks
 
     def __repr__(self):
-        return f"Container('{self.role}', {self.blocks})"
+        return f"Container(role='{self.role}', blocks={self.blocks})"
 
     @property
     def empty(self):
@@ -315,7 +315,7 @@ class Block():
                 content = content[:30] + "..."
         elif self.category == "image":
             content = "Bytes"
-        return f"Block('{self.category}', '{content}')"
+        return f"Block('category={self.category}', content='{content}')"
 
     def iscategory(self, category):
         return self.category == category
