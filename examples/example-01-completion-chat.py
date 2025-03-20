@@ -1,6 +1,5 @@
 import streamlit as st
 import streamlit_openai
-from streamlit_openai.functions import GenerateImage
 
 st.title("Example 1: Completion Chat")
 
@@ -17,6 +16,5 @@ else:
     if "chat" not in st.session_state:
         st.session_state.chat = streamlit_openai.utils.CompletionChat(
             openai_api_key=st.session_state.openai_api_key,
-            functions=[GenerateImage],
         )
     st.session_state.chat.start()

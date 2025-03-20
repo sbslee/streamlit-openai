@@ -3,7 +3,7 @@
 ## Installation
 
 ```sh
-$ pip install streamlit-openai
+$ pip install streamlit-openai streamlit openai
 ```
 
 ## Usage
@@ -34,4 +34,44 @@ Run the app:
 
 ```sh
 $ streamlit run app.py
+```
+
+## Function calling
+
+```python
+import streamlit as st
+import streamlit_openai
+
+class GenerateImage:
+    definition = {
+        "name": "generate_image",
+        "description": "Generate an image based on a given prompt.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "A description of the image to be generated.",
+                }
+            },
+            "required": ["prompt"]
+        }
+    }
+
+    def function(prompt):
+        response = st.session_state.chat.client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1,
+        )
+        return response.data[0].url
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.utils.CompletionChat(
+        functions=[GenerateImage]
+    )
+
+st.session_state.chat.start()
 ```
