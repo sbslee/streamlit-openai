@@ -57,7 +57,7 @@ class Chat():
 
         self.client = openai.OpenAI(api_key=self.openai_api_key)
 
-    def start(self):
+    def run(self):
         self.handle_files()
         for container in self.containers:
             container.write()

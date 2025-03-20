@@ -27,7 +27,7 @@ if "chat" not in st.session_state:
     # Alternatively, use Assistants API
     # st.session_state.chat = streamlit_openai.utils.AssistantChat()
 
-st.session_state.chat.start()
+st.session_state.chat.run()
 ```
 
 Run the app:
@@ -37,6 +37,10 @@ $ streamlit run app.py
 ```
 
 ## Function calling
+
+It's possible to define and call custom functions in the chat using OpenAI's 
+function calling capabilities. Here's an example of a custom function that 
+generates an image based on a given prompt:
 
 ```python
 import streamlit as st
@@ -73,5 +77,5 @@ if "chat" not in st.session_state:
         functions=[GenerateImage]
     )
 
-st.session_state.chat.start()
+st.session_state.chat.run()
 ```
