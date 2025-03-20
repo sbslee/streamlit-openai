@@ -2,6 +2,22 @@ import streamlit as st
 import openai
 import os
 import json
+import tempfile
+from pathlib import Path
+
+SUPPORTED_FILES = {
+    "file_search": [
+        ".c", ".cs", ".cpp", ".doc", ".docx", ".html", ".java", 
+        ".json", ".md", ".pdf", ".php", ".pptx", ".py", ".rb", 
+        ".texv", ".txt", ".css", ".js", ".sh", ".ts"
+    ],
+    "code_interpreter": [
+        ".c", ".cs", ".cpp", ".doc", ".docx", ".html", ".java", 
+        ".json", ".md", ".pdf", ".php", ".pptx", ".py", ".rb", 
+        ".tex", ".txt", ".css", ".js", ".sh", ".ts", ".csv", ".jpeg", 
+        ".jpg", ".gif", ".png", ".tar", ".xlsx", ".xml", ".zip"
+    ]
+}
 
 class Chat():
     def __init__(
@@ -9,6 +25,8 @@ class Chat():
             openai_api_key=None,
             model="gpt-4o",
             functions=None,
+            file_search=False,
+            code_interpreter=False,
     ):
         self.containers = []
         self.current_container = None
@@ -17,20 +35,30 @@ class Chat():
         self.openai_api_key = None
         self.model = model
         self.client = None
+        self.st_files = None
+        self.tracked_files = []
+        self.file_search = file_search
+        self.code_interpreter = code_interpreter
         
         if openai_api_key is None:
             self.openai_api_key = os.getenv("OPENAI_API_KEY")
         else:
             self.openai_api_key = openai_api_key
-  
-        if self.functions is not None:
+
+        if self.file_search or self.code_interpreter or self.functions is not None:
             self.tools = []
+        if self.file_search:
+            self.tools.append({"type": "file_search"})
+        if self.code_interpreter:
+            self.tools.append({"type": "code_interpreter"})
+        if self.functions is not None:
             for function in self.functions:
                 self.tools.append({"type": "function", "function": function.definition})
-  
+
         self.client = openai.OpenAI(api_key=self.openai_api_key)
 
     def start(self):
+        self.handle_files()
         for container in self.containers:
             container.write()
         if prompt := st.chat_input():
@@ -44,14 +72,31 @@ class Chat():
     def get_function(self, name):
         return [x for x in self.functions if x.definition["name"] == name][0]
 
-class BasicChat(Chat):
+    def upload_files(self, uploaded_files):
+        self.st_files = uploaded_files
+
+    def handle_files(self):
+        pass
+
+    def is_tracking(self, st_file):
+        return st_file.file_id in [x.st_file.file_id for x in self.tracked_files]
+    
+class CompletionChat(Chat):
     def __init__(
             self,
             openai_api_key=None,
             model="gpt-4o",
             functions=None,
+            file_search=False,
+            code_interpreter=False,
     ):
-        super().__init__(openai_api_key, model, functions)
+        super().__init__(
+            openai_api_key,
+            model,
+            functions,
+            file_search,
+            code_interpreter
+        )
         self.messages = []
 
     def _respond1(self):
@@ -63,10 +108,7 @@ class BasicChat(Chat):
         self.messages.append({"role": "assistant", "content": chunks})
         for x in chunks:
             if x.choices[0].delta.content is not None:
-                if self.current_container.empty or not self.current_container.last_block.iscategory("text"):
-                    self.current_container.add_block(Block("text"))
-                self.current_container.last_block.content += x.choices[0].delta.content
-            self.current_container.stream()
+                self.current_container.update_and_stream("text", x.choices[0].delta.content)
 
     def _respond2(self):
         chunks = self.client.chat.completions.create(
@@ -80,10 +122,7 @@ class BasicChat(Chat):
         used_tools = {}
         for x in chunks:
             if x.choices[0].delta.content is not None:
-                if self.current_container.empty or not self.current_container.last_block.iscategory("text"):
-                    self.current_container.add_block(Block("text"))
-                self.current_container.last_block.content += x.choices[0].delta.content
-            self.current_container.stream()
+                self.current_container.update_and_stream("text", x.choices[0].delta.content)
             if x.choices[0].finish_reason == 'tool_calls':
                 used_tools[current_tool["name"]] = current_tool
                 current_tool = {}
@@ -126,12 +165,8 @@ class BasicChat(Chat):
 
             for x in chunks:
                 if x.choices[0].delta.content is not None:
-                    if self.current_container.empty or not self.current_container.last_block.iscategory("text"):
-                        self.current_container.add_block(Block("text"))
-                    self.current_container.last_block.content += x.choices[0].delta.content
-            self.current_container.stream()
+                    self.current_container.update_and_stream("text", x.choices[0].delta.content)
         
-
     def respond(self, prompt):
         self.current_container = Container("assistant")
         self.messages.append({"role": "user", "content": prompt})
@@ -142,19 +177,44 @@ class BasicChat(Chat):
         self.containers.append(self.current_container)
 
 class AssistantChat(Chat):
+    """
+    A class to represent an Assistant Chat.
+
+    There are two ways to create an instance of this class:
+    1. By providing an `assistant_id`, in which case the class will be created by retrieving an existing assistant from the OpenAI server.
+    2. If `assistant_id` is not provided, the class will be created by creating a new assistant.
+
+    Attributes:
+        openai_api_key (str): The API key for OpenAI.
+        model (str): The model to be used.
+        name (str): The name of the assistant.
+        assistant_id (str): The ID of the assistant.
+        functions (list): The functions to be used.
+        file_search (bool): Whether to enable File Search.
+    """
     def __init__(
             self,
             openai_api_key=None,
             model="gpt-4o",
+            name=None,
             assistant_id=None,
             functions=None,
+            file_search=False,
+            code_interpreter=False,
     ):
-        super().__init__(openai_api_key, model, functions)
+        super().__init__(
+            openai_api_key,
+            model,
+            functions,
+            file_search,
+            code_interpreter
+        )
         self.assistant_id = assistant_id
         self.assistant = None
         self.thread = None
         if self.assistant_id is None:
             self.assistant = self.client.beta.assistants.create(
+                name=name,
                 model=self.model,
                 tools=self.tools,
             )
@@ -177,11 +237,33 @@ class AssistantChat(Chat):
             stream.until_done()
         self.containers.append(self.current_container)
 
+    def handle_files(self):
+        if self.st_files is None:
+            return
+
+        # Handle file uploads
+        for st_file in self.st_files:
+            if self.is_tracking(st_file):
+                continue
+            tracked_file = TrackedFile(st_file)
+            tracked_file.to_openai()
+            self.tracked_files.append(tracked_file)
+
+        # Handle file removals
+        for tracked_file in self.tracked_files:
+            if tracked_file.removed:
+                continue
+            if tracked_file.st_file.file_id not in [x.file_id for x in self.st_files]:
+                tracked_file.remove()
+
 class Container():
     def __init__(self, role, blocks=None):
-        self.container = st.empty()
+        self.delta_generator = st.empty()
         self.role = role
         self.blocks = blocks
+
+    def __repr__(self):
+        return f"Container('{self.role}', {self.blocks})"
 
     @property
     def empty(self):
@@ -191,11 +273,13 @@ class Container():
     def last_block(self):
         return None if self.empty else self.blocks[-1]
 
-    def add_block(self, block):
+    def update(self, category, content):
         if self.empty:
-            self.blocks = [block]
+            self.blocks = [Block(category, content)]
+        elif self.last_block.iscategory(category):
+            self.last_block.content += content
         else:
-            self.blocks.append(block)
+            self.blocks.append(Block(category, content))
 
     def write(self):
         if self.empty:
@@ -205,8 +289,12 @@ class Container():
                 for block in self.blocks:
                     block.write()
 
+    def update_and_stream(self, category, content):
+        self.update(category, content)
+        self.stream()
+
     def stream(self):
-        with self.container:
+        with self.delta_generator:
             self.write()
 
 class Block():
@@ -219,26 +307,46 @@ class Block():
         else:
             self.content = content
 
+    def __repr__(self):
+        if self.category == "text" or self.category == "code":
+            content = self.content
+            if len(content) > 50:
+                content = content[:30] + "..."
+        elif self.category == "image":
+            content = "Bytes"
+        return f"Block('{self.category}', '{content}')"
+
     def iscategory(self, category):
         return self.category == category
 
     def write(self):        
         if self.category == "text":
             st.markdown(self.content)
+        elif self.category == "code":
+            st.code(self.content)
+        elif self.category == "image":
+            st.image(self.content)
 
 class EventHandler(openai.AssistantEventHandler):
     def __init__(self):
         super().__init__()
+        self.current_container = st.session_state.chat.current_container
 
     def on_text_delta(self, delta, snapshot):
-        if st.session_state.chat.current_container.empty or not st.session_state.chat.current_container.last_block.iscategory("text"):
-            st.session_state.chat.current_container.add_block(Block("text"))
-        st.session_state.chat.current_container.last_block.content += delta.value
-        st.session_state.chat.current_container.stream()
+        if delta.value:
+            self.current_container.update_and_stream("text", delta.value)
 
     def on_tool_call_delta(self, delta, snapshot):
         if delta.type == "function":
-            st.session_state.chat.current_container.stream()
+            self.current_container.stream()
+        elif delta.type == "code_interpreter":
+            if delta.code_interpreter.input:
+                self.current_container.update_and_stream("code", delta.code_interpreter.input)
+
+    def on_image_file_done(self, image_file):
+        image_data = st.session_state.chat.client.files.content(image_file.file_id)
+        image_data_bytes = image_data.read()
+        self.current_container.update_and_stream("image", image_data_bytes)
 
     def submit_tool_outputs(self, tool_outputs, run_id):
         with st.session_state.chat.client.beta.threads.runs.submit_tool_outputs_stream(
@@ -261,5 +369,30 @@ class EventHandler(openai.AssistantEventHandler):
             run_id = event.data.id
             self.handle_requires_action(event.data, run_id)
 
-    # def on_end(self):
-    #     st.session_state.chat.containers.append(st.session_state.chat.current_container)
+class TrackedFile():
+    def __init__(self, st_file):
+        self.st_file = st_file
+        self.openai_file = None
+        self.removed = False
+
+    def to_openai(self):
+        with tempfile.TemporaryDirectory() as t:
+            file_path = os.path.join(t, self.st_file.name)
+            with open(file_path, "wb") as f:
+                f.write(self.st_file.getvalue())
+            self.openai_file = st.session_state.chat.client.files.create(file=Path(file_path), purpose="assistants")
+            st.session_state.chat.client.beta.threads.messages.create(
+                thread_id=st.session_state.chat.thread.id,
+                role="user",    
+                content=f"File uploaded: {self.st_file.name}",
+                attachments=[{"file_id": self.openai_file.id, "tools": [{"type": "file_search"}]}]
+            )
+
+    def remove(self):
+        st.session_state.chat.client.files.delete(self.openai_file.id)
+        st.session_state.chat.client.beta.threads.messages.create(
+            thread_id=st.session_state.chat.thread.id,
+            role="user",
+            content=f"File removed: {self.st_file.name}",
+        )
+        self.removed = True
