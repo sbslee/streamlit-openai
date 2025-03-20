@@ -1,9 +1,9 @@
 import streamlit as st
 import openai
-import os
-import json
-import tempfile
+import os, json, tempfile
 from pathlib import Path
+from typing import Optional
+from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 SUPPORTED_FILES = {
     "file_search": [
@@ -22,11 +22,11 @@ SUPPORTED_FILES = {
 class Chat():
     def __init__(
             self,
-            api_key=None,
-            model="gpt-4o",
+            api_key: Optional[str] = None,
+            model: str = "gpt-4o",
             functions=None,
-            file_search=False,
-            code_interpreter=False,
+            file_search: bool = False,
+            code_interpreter: bool = False,
     ):
         self.containers = []
         self.current_container = None
@@ -57,7 +57,8 @@ class Chat():
 
         self.client = openai.OpenAI(api_key=self.api_key)
 
-    def run(self):
+    def run(self, uploaded_files=None):
+        self.st_files = uploaded_files
         self.handle_files()
         for container in self.containers:
             container.write()
@@ -71,9 +72,6 @@ class Chat():
 
     def get_function(self, name):
         return [x for x in self.functions if x.definition["name"] == name][0]
-
-    def upload_files(self, uploaded_files):
-        self.st_files = uploaded_files
 
     def handle_files(self):
         pass
@@ -123,7 +121,7 @@ class CompletionChat(Chat):
         for x in chunks:
             if x.choices[0].delta.content is not None:
                 self.current_container.update_and_stream("text", x.choices[0].delta.content)
-            if x.choices[0].finish_reason == 'tool_calls':
+            if x.choices[0].finish_reason == "tool_calls":
                 used_tools[current_tool["name"]] = current_tool
                 current_tool = {}
             if x.choices[0].delta.tool_calls is not None:
@@ -365,12 +363,20 @@ class EventHandler(openai.AssistantEventHandler):
         self.submit_tool_outputs(tool_outputs, run_id)
 
     def on_event(self, event):
-        if event.event == 'thread.run.requires_action':
+        if event.event == "thread.run.requires_action":
             run_id = event.data.id
             self.handle_requires_action(event.data, run_id)
 
 class TrackedFile():
-    def __init__(self, st_file):
+    """
+    A class to represent a file that is tracked and managed within the OpenAI and Streamlit integration.
+
+    Attributes:
+        st_file (UploadedFile): The UploadedFile object created by Streamlit.
+        openai_file (File): The File object created by OpenAI.
+        removed (bool): A flag indicating whether the file has been removed.
+    """
+    def __init__(self, st_file: UploadedFile):
         self.st_file = st_file
         self.openai_file = None
         self.removed = False
