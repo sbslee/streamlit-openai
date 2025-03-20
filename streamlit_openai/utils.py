@@ -22,7 +22,7 @@ SUPPORTED_FILES = {
 class Chat():
     def __init__(
             self,
-            openai_api_key=None,
+            api_key=None,
             model="gpt-4o",
             functions=None,
             file_search=False,
@@ -32,7 +32,7 @@ class Chat():
         self.current_container = None
         self.functions = functions
         self.tools = None
-        self.openai_api_key = None
+        self.api_key = None
         self.model = model
         self.client = None
         self.st_files = None
@@ -40,10 +40,10 @@ class Chat():
         self.file_search = file_search
         self.code_interpreter = code_interpreter
         
-        if openai_api_key is None:
-            self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        if api_key is None:
+            self.api_key = os.getenv("OPENAI_API_KEY")
         else:
-            self.openai_api_key = openai_api_key
+            self.api_key = api_key
 
         if self.file_search or self.code_interpreter or self.functions is not None:
             self.tools = []
@@ -55,7 +55,7 @@ class Chat():
             for function in self.functions:
                 self.tools.append({"type": "function", "function": function.definition})
 
-        self.client = openai.OpenAI(api_key=self.openai_api_key)
+        self.client = openai.OpenAI(api_key=self.api_key)
 
     def run(self):
         self.handle_files()
@@ -84,14 +84,14 @@ class Chat():
 class CompletionChat(Chat):
     def __init__(
             self,
-            openai_api_key=None,
+            api_key=None,
             model="gpt-4o",
             functions=None,
             file_search=False,
             code_interpreter=False,
     ):
         super().__init__(
-            openai_api_key,
+            api_key,
             model,
             functions,
             file_search,
@@ -185,7 +185,7 @@ class AssistantChat(Chat):
     2. If `assistant_id` is not provided, the class will be created by creating a new assistant.
 
     Attributes:
-        openai_api_key (str): The API key for OpenAI.
+        api_key (str): The API key for OpenAI.
         model (str): The model to be used.
         name (str): The name of the assistant.
         assistant_id (str): The ID of the assistant.
@@ -194,7 +194,7 @@ class AssistantChat(Chat):
     """
     def __init__(
             self,
-            openai_api_key=None,
+            api_key=None,
             model="gpt-4o",
             name=None,
             assistant_id=None,
@@ -203,7 +203,7 @@ class AssistantChat(Chat):
             code_interpreter=False,
     ):
         super().__init__(
-            openai_api_key,
+            api_key,
             model,
             functions,
             file_search,
