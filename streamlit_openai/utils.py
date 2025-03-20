@@ -81,7 +81,7 @@ class Chat():
     def is_tracking(self, st_file):
         return st_file.file_id in [x.st_file.file_id for x in self.tracked_files]
     
-class BasicChat(Chat):
+class CompletionChat(Chat):
     def __init__(
             self,
             openai_api_key=None,

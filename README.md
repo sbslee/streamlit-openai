@@ -22,7 +22,7 @@ import streamlit_openai
 
 if "chat" not in st.session_state:
     # Use Chat Completions API
-    st.session_state.chat = streamlit_openai.utils.BasicChat()
+    st.session_state.chat = streamlit_openai.utils.CompletionChat()
 
     # Alternatively, use Assistants API
     # st.session_state.chat = streamlit_openai.utils.AssistantChat()
