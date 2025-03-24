@@ -38,15 +38,18 @@ $ streamlit run app.py
 
 ## Function calling
 
-It's possible to define and call custom functions in the chat using OpenAI's 
-function calling capabilities. Here's an example of a custom function that 
-generates an image based on a given prompt:
+You can define and call custom functions within a chat using OpenAI’s function 
+calling capabilities. To create a custom function, define a `CustomFunction` 
+class that takes two input arguments: `definition` (a dictionary describing 
+the function) and `function` (the actual callable method). Below is an example 
+of a custom function that generates an image based on a given prompt:
 
 ```python
 import streamlit as st
+import openai
 import streamlit_openai
 
-class GenerateImage:
+if "chat" not in st.session_state:
     definition = {
         "name": "generate_image",
         "description": "Generate an image based on a given prompt.",
@@ -63,7 +66,8 @@ class GenerateImage:
     }
 
     def function(prompt):
-        response = st.session_state.chat.client.images.generate(
+        client = openai.OpenAI()
+        response = client.images.generate(
             model="dall-e-3",
             prompt=prompt,
             size="1024x1024",
@@ -71,10 +75,11 @@ class GenerateImage:
             n=1,
         )
         return response.data[0].url
+    
+    generate_image = streamlit_openai.utils.CustomFunction(definition, function)
 
-if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.utils.CompletionChat(
-        functions=[GenerateImage]
+        functions=[generate_image],
     )
 
 st.session_state.chat.run()

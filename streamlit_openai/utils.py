@@ -168,7 +168,7 @@ class CompletionChat(Chat):
         self.messages.append({"role": "user", "content": prompt})
         if self.functions is None:
             self._respond1()
-        else:  
+        else:
             self._respond2()
         self.containers.append(self.current_container)
 
@@ -410,3 +410,8 @@ class TrackedFile():
             content=f"File removed: {self.uploaded_file.name}",
         )
         self.removed = True
+
+class CustomFunction():
+    def __init__(self, definition, function) -> None:
+        self.definition = definition
+        self.function = function
