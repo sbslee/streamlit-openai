@@ -177,8 +177,8 @@ class AssistantChat(Chat):
     A class to represent an Assistant Chat.
 
     There are two ways to create an instance of this class:
-    1. By providing an `assistant_id`, in which case the class will be created by retrieving an existing assistant from the OpenAI server.
-    2. If `assistant_id` is not provided, the class will be created by creating a new assistant.
+    1. By providing an `assistant_id`, in which case the class will be created by retrieving an existing assistant from the OpenAI server. The `assistant_id` argument is required in this case.
+    2. If `assistant_id` is not provided, the class will be created by creating a new assistant. The `name` argument is required in this case.
 
     Attributes:
         api_key (str): The API key for OpenAI.
@@ -187,6 +187,7 @@ class AssistantChat(Chat):
         assistant_id (str): The ID of the assistant.
         functions (list): The functions to be used.
         file_search (bool): Whether to enable File Search.
+        code_interpreter (bool): Whether to enable Code Interpreter.
     """
     def __init__(
             self,
