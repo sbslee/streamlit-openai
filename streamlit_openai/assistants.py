@@ -133,9 +133,6 @@ class Assistants():
     def get_function(self, name):
         return [x for x in self.functions if x.definition["name"] == name][0]
 
-    def handle_files(self, uploaded_files) -> None:
-        pass
-
     def is_tracking(self, uploaded_file):
         return uploaded_file.file_id in [x.uploaded_file.file_id for x in self.tracked_files]
 
