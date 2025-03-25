@@ -112,7 +112,7 @@ class Assistants():
             return
         else:
             for uploaded_file in uploaded_files:
-                if self.is_tracking(uploaded_file):
+                if uploaded_file.file_id in [x.uploaded_file.file_id for x in self.tracked_files]:
                     continue
                 tracked_file = TrackedFile(uploaded_file)
                 tracked_file.to_openai()
@@ -130,12 +130,6 @@ class Assistants():
                 else:
                     continue
 
-    def get_function(self, name):
-        return [x for x in self.functions if x.definition["name"] == name][0]
-
-    def is_tracking(self, uploaded_file):
-        return uploaded_file.file_id in [x.uploaded_file.file_id for x in self.tracked_files]
-
 class EventHandler(openai.AssistantEventHandler):
     def __init__(self):
         super().__init__()
@@ -143,6 +137,9 @@ class EventHandler(openai.AssistantEventHandler):
 
     def on_text_delta(self, delta, snapshot):
         if delta.value:
+            if delta.annotations is not None:
+                for annotation in delta.annotations:
+                    delta.value = delta.value.replace(annotation.text, "")
             self.current_container.update_and_stream("text", delta.value)
 
     def on_tool_call_delta(self, delta, snapshot):
@@ -169,6 +166,7 @@ class EventHandler(openai.AssistantEventHandler):
     def handle_requires_action(self, data, run_id):
         tool_outputs = []
         for tool in data.required_action.submit_tool_outputs.tool_calls:
+            function = [x for x in self.functions if x.definition["name"] == name][0]
             result = st.session_state.chat.get_function(tool.function.name).function(**json.loads(tool.function.arguments))
             tool_outputs.append({"tool_call_id": tool.id, "output": result})
         self.submit_tool_outputs(tool_outputs, run_id)
