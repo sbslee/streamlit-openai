@@ -1,12 +1,15 @@
-# streamlit-openai
+Welcome to the `streamlit-openai` package! This package provides a Streamlit
+component for creating chat interfaces with OpenAI's API. It supports both the
+Chat Completions and Assistants APIs, and allows you to define custom functions
+that can be called within the chat.
 
-## Installation
+# Installation
 
 ```sh
 $ pip install streamlit-openai streamlit openai
 ```
 
-## Usage
+# Usage
 
 Export your OpenAI API key:
 
@@ -36,7 +39,7 @@ Run the app:
 $ streamlit run app.py
 ```
 
-## Function calling
+# Function calling
 
 You can define and call custom functions within a chat using OpenAI’s function 
 calling capabilities. To create a custom function, define a `CustomFunction` 
@@ -83,4 +86,25 @@ if "chat" not in st.session_state:
     )
 
 st.session_state.chat.run()
+```
+
+# File search
+
+You can allow models to search your files for relevant information before 
+generating a response by using OpenAI’s file search capabilities. To enable 
+file search, set the `file_search` parameter to `True` when initializing the 
+`Assistants` class. Note that this feature is available only in the Assistants 
+API and not in the Chat Completions API from OpenAI. Below is an example of
+how to enable file search in a chat interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Assistants(file_search=True)
+    
+uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=True)
+
+st.session_state.chat.run(uploaded_files=uploaded_files)
 ```
