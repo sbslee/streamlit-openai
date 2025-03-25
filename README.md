@@ -22,10 +22,10 @@ import streamlit_openai
 
 if "chat" not in st.session_state:
     # Use Chat Completions API
-    st.session_state.chat = streamlit_openai.utils.CompletionChat()
+    st.session_state.chat = streamlit_openai.ChatCompletions()
 
     # Alternatively, use Assistants API
-    # st.session_state.chat = streamlit_openai.utils.AssistantChat()
+    # st.session_state.chat = streamlit_openai.Assistants()
 
 st.session_state.chat.run()
 ```
@@ -78,7 +78,7 @@ if "chat" not in st.session_state:
     
     generate_image = streamlit_openai.utils.CustomFunction(definition, function)
 
-    st.session_state.chat = streamlit_openai.utils.CompletionChat(
+    st.session_state.chat = streamlit_openai.ChatCompletions(
         functions=[generate_image],
     )
 
