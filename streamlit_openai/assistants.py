@@ -165,10 +165,10 @@ class EventHandler(openai.AssistantEventHandler):
 
     def handle_requires_action(self, data, run_id):
         tool_outputs = []
-        for tool in data.required_action.submit_tool_outputs.tool_calls:
-            function = [x for x in self.functions if x.definition["name"] == name][0]
-            result = st.session_state.chat.get_function(tool.function.name).function(**json.loads(tool.function.arguments))
-            tool_outputs.append({"tool_call_id": tool.id, "output": result})
+        for tool_call in data.required_action.submit_tool_outputs.tool_calls:
+            function = [x for x in st.session_state.chat.functions if x.definition["name"] == tool_call.function.name][0]
+            result = function.function(**json.loads(tool_call.function.arguments))
+            tool_outputs.append({"tool_call_id": tool_call.id, "output": result})
         self.submit_tool_outputs(tool_outputs, run_id)
 
     def on_event(self, event):

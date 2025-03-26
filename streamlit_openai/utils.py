@@ -119,3 +119,6 @@ class CustomFunction():
     def __init__(self, definition, function) -> None:
         self.definition = definition
         self.function = function
+
+    def __repr__(self):
+        return f"CustomFunction(definition='{self.definition}')"
