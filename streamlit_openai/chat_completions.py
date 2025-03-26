@@ -1,15 +1,33 @@
 import streamlit as st
 import openai
 import os, json
-from typing import Optional
-from .utils import Container, Block
+from typing import Optional, List
+from .utils import Container, Block, CustomFunction
 
 class ChatCompletions():
+    """
+    A chat interface using OpenAI's Chat Completions API with optional 
+    function calling support.
+
+    This class manages a message history and streams assistant responses using 
+    either simple completions or function-enabled completions depending on the 
+    provided configuration. It integrates with Streamlit for interactive chat 
+    UIs.
+
+    Attributes:
+        api_key (str): API key for OpenAI. If not provided, fetched from environment variable `OPENAI_API_KEY`.
+        model (str): The OpenAI model used for chat completions (default: "gpt-4o").
+        functions (list): Optional list of custom function tools to be attached to the assistant.
+        messages (list): The chat history in OpenAI's expected message format.
+        containers (list): List to track the conversation history in structured form.
+        current_container (Container): The current container being used for assistant messages.
+        tools (list): A list of tools derived from function definitions for the assistant to call.
+    """
     def __init__(
             self,
             api_key: Optional[str] = None,
-            model: str = "gpt-4o",
-            functions=None,
+            model: Optional[str] = "gpt-4o",
+            functions: Optional[List[CustomFunction]] = None,
     ):
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.client = openai.OpenAI(api_key=self.api_key)
@@ -26,6 +44,7 @@ class ChatCompletions():
                 self.tools.append({"type": "function", "function": function.definition})
 
     def _respond1(self):
+        """Streams a simple assistant response without tool usage."""
         chunks = self.client.chat.completions.create(
             model=self.model,
             messages=self.messages,
@@ -37,6 +56,7 @@ class ChatCompletions():
                 self.current_container.update_and_stream("text", x.choices[0].delta.content)
 
     def _respond2(self):
+        """Streams assistant response with support for tool calls."""
         chunks = self.client.chat.completions.create(
             model=self.model,
             messages=self.messages,
@@ -95,6 +115,7 @@ class ChatCompletions():
                     self.current_container.update_and_stream("text", x.choices[0].delta.content)
         
     def respond(self, prompt):
+        """Sends the user prompt to the assistant and streams the response."""
         self.current_container = Container("assistant")
         self.messages.append({"role": "user", "content": prompt})
         if self.functions is None:
@@ -104,6 +125,7 @@ class ChatCompletions():
         self.containers.append(self.current_container)
 
     def run(self):
+        """Runs the main assistant loop: handles user messages."""
         for container in self.containers:
             container.write()
         if prompt := st.chat_input():

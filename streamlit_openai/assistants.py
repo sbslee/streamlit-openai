@@ -23,11 +23,11 @@ class Assistants():
         file_search (bool): Whether file search capability should be enabled.
         code_interpreter (bool): Whether code interpreter tool should be enabled.
         containers (list): List to track the conversation history in structured form.
-        current_container: The current container being used for assistant messages.
+        current_container (Container): The current container being used for assistant messages.
         tools (list): Tools (custom functions, file search, code interpreter) enabled for the assistant.
         tracked_files (list): List of files being tracked for uploads/removals.
-        assistant: The instantiated or retrieved OpenAI assistant.
-        thread: The conversation thread associated with the assistant.
+        assistant (Assistant): The instantiated or retrieved OpenAI assistant.
+        thread (Thread): The conversation thread associated with the assistant.
     """
     def __init__(
             self,
@@ -142,6 +142,7 @@ class EventHandler(openai.AssistantEventHandler):
         self.current_container = st.session_state.chat.current_container
 
     def on_text_delta(self, delta, snapshot) -> None:
+        """Handles streaming text output by updating the current container, stripping out annotations."""
         if delta.value:
             if delta.annotations is not None:
                 for annotation in delta.annotations:
@@ -149,6 +150,7 @@ class EventHandler(openai.AssistantEventHandler):
             self.current_container.update_and_stream("text", delta.value)
 
     def on_tool_call_delta(self, delta, snapshot) -> None:
+        """Handles streaming tool call output, including function names and code interpreter input."""
         if delta.type == "function":
             self.current_container.stream()
         elif delta.type == "code_interpreter":
@@ -156,11 +158,13 @@ class EventHandler(openai.AssistantEventHandler):
                 self.current_container.update_and_stream("code", delta.code_interpreter.input)
 
     def on_image_file_done(self, image_file) -> None:
+        """Handles image file completion and streams the image to the chat container."""
         image_data = st.session_state.chat.client.files.content(image_file.file_id)
         image_data_bytes = image_data.read()
         self.current_container.update_and_stream("image", image_data_bytes)
 
     def submit_tool_outputs(self, tool_outputs, run_id) -> None:
+        """Submits outputs of tool calls back to the assistant and streams the result."""
         with st.session_state.chat.client.beta.threads.runs.submit_tool_outputs_stream(
             thread_id=self.current_run.thread_id,
             run_id=self.current_run.id,
@@ -170,6 +174,7 @@ class EventHandler(openai.AssistantEventHandler):
             stream.until_done()
 
     def handle_requires_action(self, data, run_id) -> None:
+        """Resolves required function calls by executing them and preparing the tool outputs."""
         tool_outputs = []
         for tool_call in data.required_action.submit_tool_outputs.tool_calls:
             function = [x for x in st.session_state.chat.functions if x.definition["name"] == tool_call.function.name][0]
@@ -178,6 +183,7 @@ class EventHandler(openai.AssistantEventHandler):
         self.submit_tool_outputs(tool_outputs, run_id)
 
     def on_event(self, event) -> None:
+        """General event dispatcher that handles "requires_action" events and triggers function execution."""
         if event.event == "thread.run.requires_action":
             run_id = event.data.id
             self.handle_requires_action(event.data, run_id)
