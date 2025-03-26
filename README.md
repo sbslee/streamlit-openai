@@ -39,6 +39,13 @@ Run the app:
 $ streamlit run app.py
 ```
 
+# Schematic diagram
+
+The following diagram illustrates the `Container` and `Block` classes used
+to create a chat interface with OpenAI's API:
+
+![Schematic diagram](schematic_diagram.png)
+
 # Function calling
 
 You can define and call custom functions within a chat using OpenAI’s function 
