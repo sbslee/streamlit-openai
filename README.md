@@ -42,7 +42,7 @@ $ streamlit run app.py
 # Schematic diagram
 
 The following diagram illustrates the `Container` and `Block` classes used
-to create a chat interface with OpenAI's API:
+to create a chat interface:
 
 ![Schematic diagram](schematic_diagram.png)
 
