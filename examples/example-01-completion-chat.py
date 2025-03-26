@@ -17,4 +17,4 @@ else:
         st.session_state.chat = streamlit_openai.utils.CompletionChat(
             openai_api_key=st.session_state.openai_api_key,
         )
-    st.session_state.chat.start()
+    st.session_state.chat.run()

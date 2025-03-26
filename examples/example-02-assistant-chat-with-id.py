@@ -19,4 +19,4 @@ else:
             openai_api_key=st.session_state.openai_api_key,
             assistant_id=st.session_state.assistant_id,
         )
-    st.session_state.chat.start()
+    st.session_state.chat.run()

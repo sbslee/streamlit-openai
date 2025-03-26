@@ -1,12 +1,15 @@
-# streamlit-openai
+Welcome to the `streamlit-openai` package! This package provides a Streamlit 
+component for creating chat interfaces using OpenAI’s API. It supports both 
+the Chat Completions and Assistants APIs, and also includes integration with 
+OpenAI’s built-in tools, such as function calling and file search.
 
-## Installation
+# Installation
 
 ```sh
 $ pip install streamlit-openai streamlit openai
 ```
 
-## Usage
+# Usage
 
 Export your OpenAI API key:
 
@@ -22,12 +25,12 @@ import streamlit_openai
 
 if "chat" not in st.session_state:
     # Use Chat Completions API
-    st.session_state.chat = streamlit_openai.utils.CompletionChat()
+    st.session_state.chat = streamlit_openai.ChatCompletions()
 
     # Alternatively, use Assistants API
-    # st.session_state.chat = streamlit_openai.utils.AssistantChat()
+    # st.session_state.chat = streamlit_openai.Assistants()
 
-st.session_state.chat.start()
+st.session_state.chat.run()
 ```
 
 Run the app:
@@ -36,13 +39,20 @@ Run the app:
 $ streamlit run app.py
 ```
 
-## Function calling
+# Function calling
+
+You can define and call custom functions within a chat using OpenAI’s function 
+calling capabilities. To create a custom function, define a `CustomFunction` 
+class that takes two input arguments: `definition` (a dictionary describing 
+the function) and `function` (the actual callable method). Below is an example 
+of a custom function that generates an image based on a given prompt:
 
 ```python
 import streamlit as st
+import openai
 import streamlit_openai
 
-class GenerateImage:
+if "chat" not in st.session_state:
     definition = {
         "name": "generate_image",
         "description": "Generate an image based on a given prompt.",
@@ -59,7 +69,8 @@ class GenerateImage:
     }
 
     def function(prompt):
-        response = st.session_state.chat.client.images.generate(
+        client = openai.OpenAI()
+        response = client.images.generate(
             model="dall-e-3",
             prompt=prompt,
             size="1024x1024",
@@ -67,11 +78,33 @@ class GenerateImage:
             n=1,
         )
         return response.data[0].url
+    
+    generate_image = streamlit_openai.utils.CustomFunction(definition, function)
 
-if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.utils.CompletionChat(
-        functions=[GenerateImage]
+    st.session_state.chat = streamlit_openai.ChatCompletions(
+        functions=[generate_image],
     )
 
-st.session_state.chat.start()
+st.session_state.chat.run()
+```
+
+# File search
+
+You can allow models to search your files for relevant information before 
+generating a response by using OpenAI’s file search capabilities. To enable 
+file search, set the `file_search` parameter to `True` when initializing the 
+`Assistants` class. Note that this feature is available only in the Assistants 
+API and not in the Chat Completions API from OpenAI. Below is an example of
+how to enable file search in a chat interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Assistants(file_search=True)
+    
+uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=True)
+
+st.session_state.chat.run(uploaded_files=uploaded_files)
 ```
