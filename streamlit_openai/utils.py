@@ -161,10 +161,11 @@ class TrackedFile():
 
 class CustomFunction():
     """
-    Represents a user-defined function and its corresponding OpenAI function definition.
+    Represents a user-defined function and its corresponding OpenAI function 
+    definition.
 
-    This class wraps a callable Python function with metadata in the format expected by 
-    OpenAI's function-calling tools.
+    This class wraps a callable Python function with metadata in the format 
+    expected by OpenAI's function-calling tools.
 
     Attributes:
         definition (dict): The OpenAI-compatible function schema/definition.

@@ -144,11 +144,11 @@ class EventHandler(openai.AssistantEventHandler):
     def on_text_delta(self, delta, snapshot) -> None:
         """Handles streaming text output by updating the current container, stripping out annotations."""
         if delta.value:
+            self.current_container.update_and_stream("text", delta.value)
             if delta.annotations is not None:
                 for annotation in delta.annotations:
-                    delta.value = delta.value.replace(annotation.text, "")
-            self.current_container.update_and_stream("text", delta.value)
-
+                    self.current_container.last_block.content = self.current_container.last_block.content.replace(annotation.text, "")
+            
     def on_tool_call_delta(self, delta, snapshot) -> None:
         """Handles streaming tool call output, including function names and code interpreter input."""
         if delta.type == "function":
