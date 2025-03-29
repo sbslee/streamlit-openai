@@ -1,8 +1,12 @@
 import streamlit as st
 import openai
-import os, json
+import os, json, re
 from typing import Optional, List
 from .utils import Container, Block, TrackedFile, CustomFunction
+from openai.types.beta import AssistantStreamEvent
+from openai.types.beta.threads import Text, TextDelta, ImageFile
+from openai.types.beta.threads.runs import ToolCall, ToolCallDelta
+from openai import Stream
 
 DEVELOPER_MESSAGE = """
 - Your response must use GitHub-flavored Markdown.
@@ -43,7 +47,7 @@ class Assistants():
             functions: Optional[List[CustomFunction]] = None,
             file_search: bool = False,
             code_interpreter: bool = False,
-    ):
+    ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.client = openai.OpenAI(api_key=self.api_key)
         self.model = model
@@ -103,7 +107,7 @@ class Assistants():
         )
         with self.client.beta.threads.runs.stream(
             thread_id=self.thread.id,
-            event_handler=EventHandler(),
+            event_handler=AssistantEventHandler(),
             assistant_id=self.assistant.id,
         ) as stream:
             stream.until_done()
@@ -134,7 +138,7 @@ class Assistants():
                 else:
                     continue
 
-class EventHandler(openai.AssistantEventHandler):
+class AssistantEventHandler(openai.AssistantEventHandler):
     """
     Custom event handler for OpenAI Assistant streaming events, designed to 
     manage dynamic updates to the Streamlit chat UI in real time.
@@ -144,19 +148,17 @@ class EventHandler(openai.AssistantEventHandler):
     It updates the corresponding UI container in Streamlit's session state 
     accordingly.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.current_container = st.session_state.chat.current_container
 
-    def on_text_delta(self, delta, snapshot) -> None:
+    def on_text_delta(self, delta: TextDelta, snapshot: Text) -> None:
         """Handles streaming text output by updating the current container, stripping out annotations."""
-        if delta.value:
+        if delta.value is not None:
             self.current_container.update_and_stream("text", delta.value)
-            if delta.annotations is not None:
-                for annotation in delta.annotations:
-                    self.current_container.last_block.content = self.current_container.last_block.content.replace(annotation.text, "")
+            self.current_container.last_block.content = re.sub(r"【.*?】", "", self.current_container.last_block.content)
             
-    def on_tool_call_delta(self, delta, snapshot) -> None:
+    def on_tool_call_delta(self, delta: ToolCallDelta, snapshot: ToolCall) -> None:
         """Handles streaming tool call output, including function names and code interpreter input."""
         if delta.type == "function":
             self.current_container.stream()
@@ -164,7 +166,7 @@ class EventHandler(openai.AssistantEventHandler):
             if delta.code_interpreter.input:
                 self.current_container.update_and_stream("code", delta.code_interpreter.input)
 
-    def on_image_file_done(self, image_file) -> None:
+    def on_image_file_done(self, image_file: ImageFile) -> None:
         """Handles image file completion and streams the image to the chat container."""
         image_data = st.session_state.chat.client.files.content(image_file.file_id)
         image_data_bytes = image_data.read()
@@ -176,7 +178,7 @@ class EventHandler(openai.AssistantEventHandler):
             thread_id=self.current_run.thread_id,
             run_id=self.current_run.id,
             tool_outputs=tool_outputs,
-            event_handler=EventHandler(),
+            event_handler=AssistantEventHandler(),
         ) as stream:
             stream.until_done()
 
@@ -189,7 +191,7 @@ class EventHandler(openai.AssistantEventHandler):
             tool_outputs.append({"tool_call_id": tool_call.id, "output": result})
         self.submit_tool_outputs(tool_outputs, run_id)
 
-    def on_event(self, event) -> None:
+    def on_event(self, event: AssistantStreamEvent) -> None:
         """General event dispatcher that handles "requires_action" events and triggers function execution."""
         if event.event == "thread.run.requires_action":
             run_id = event.data.id

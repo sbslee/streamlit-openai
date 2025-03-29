@@ -33,7 +33,7 @@ class ChatCompletions():
             api_key: Optional[str] = None,
             model: Optional[str] = "gpt-4o",
             functions: Optional[List[CustomFunction]] = None,
-    ):
+    ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.client = openai.OpenAI(api_key=self.api_key)
         self.model = model
@@ -48,7 +48,7 @@ class ChatCompletions():
             for function in self.functions:
                 self.tools.append({"type": "function", "function": function.definition})
 
-    def _respond1(self):
+    def _respond1(self) -> None:
         """Streams a simple assistant response without tool usage."""
         chunks = self.client.chat.completions.create(
             model=self.model,
@@ -60,7 +60,7 @@ class ChatCompletions():
             if x.choices[0].delta.content is not None:
                 self.current_container.update_and_stream("text", x.choices[0].delta.content)
 
-    def _respond2(self):
+    def _respond2(self) -> None:
         """Streams assistant response with support for tool calls."""
         chunks = self.client.chat.completions.create(
             model=self.model,
@@ -119,7 +119,7 @@ class ChatCompletions():
                 if x.choices[0].delta.content is not None:
                     self.current_container.update_and_stream("text", x.choices[0].delta.content)
         
-    def respond(self, prompt):
+    def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
         self.current_container = Container("assistant")
         self.messages.append({"role": "user", "content": prompt})
@@ -129,7 +129,7 @@ class ChatCompletions():
             self._respond2()
         self.containers.append(self.current_container)
 
-    def run(self):
+    def run(self) -> None:
         """Runs the main assistant loop: handles user messages."""
         for container in self.containers:
             container.write()

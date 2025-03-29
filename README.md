@@ -3,6 +3,13 @@ component for creating chat interfaces using OpenAI’s API. It supports both
 the Chat Completions and Assistants APIs, and also includes integration with 
 OpenAI’s built-in tools, such as function calling and file search.
 
+# Table of Contents
+- [Installation](#installation)
+- [Usage](#usage)
+- [Schematic Diagram](#schematic-diagram)
+- [Function Calling](#function-calling)
+- [File Search](#file-search)
+
 # Installation
 
 ```sh
@@ -39,14 +46,14 @@ Run the app:
 $ streamlit run app.py
 ```
 
-# Schematic diagram
+# Schematic Diagram
 
 The following diagram illustrates the `Container` and `Block` classes used
 to create a chat interface:
 
 ![Schematic diagram](schematic_diagram.png)
 
-# Function calling
+# Function Calling
 
 You can define and call custom functions within a chat using OpenAI’s function 
 calling capabilities. To create a custom function, define a `CustomFunction` 
@@ -95,7 +102,7 @@ if "chat" not in st.session_state:
 st.session_state.chat.run()
 ```
 
-# File search
+# File Search
 
 You can allow models to search your files for relevant information before 
 generating a response by using OpenAI’s file search capabilities. To enable 
