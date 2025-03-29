@@ -122,3 +122,22 @@ uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=
 
 st.session_state.chat.run(uploaded_files=uploaded_files)
 ```
+
+# Code Interpreter
+
+You can allow models to run Python code in a sandboxed execution environment 
+using OpenAI’s code interpreter capabilities. To enable code interpreter, set 
+the `code_interpreter` parameter to `True` when initializing the `Assistants` 
+class. Note that this feature is available only in the Assistants API and not 
+in the Chat Completions API from OpenAI. Below is an example of how to enable 
+code interpreter in a chat interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Assistants(code_interpreter=True)
+
+st.session_state.chat.run()
+```
