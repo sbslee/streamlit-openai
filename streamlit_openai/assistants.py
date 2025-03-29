@@ -4,6 +4,11 @@ import os, json
 from typing import Optional, List
 from .utils import Container, Block, TrackedFile, CustomFunction
 
+DEVELOPER_MESSAGE = """
+- Your response must use GitHub-flavored Markdown.
+- Wrap all mathematical expressions and LaTeX terms in `$...$` for inline math and `$$...$$` for display math.
+"""
+
 class Assistants():
     """
     A class to interact with OpenAI's Assistant API, providing conversational 
@@ -66,13 +71,15 @@ class Assistants():
         if self.assistant_id is None:
             self.assistant = self.client.beta.assistants.create(
                 name=name,
+                instructions=DEVELOPER_MESSAGE,
                 model=self.model,
                 tools=self.tools,
             )
         else:
             self.assistant = self.client.beta.assistants.retrieve(self.assistant_id)
+            
         self.thread = self.client.beta.threads.create()
- 
+
     def run(self, uploaded_files=None) -> None:
         """Runs the main assistant loop: handles file input and user messages."""
         self.handle_files(uploaded_files)

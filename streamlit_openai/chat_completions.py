@@ -4,6 +4,11 @@ import os, json
 from typing import Optional, List
 from .utils import Container, Block, CustomFunction
 
+DEVELOPER_MESSAGE = """
+- Your response must use GitHub-flavored Markdown.
+- Wrap all mathematical expressions and LaTeX terms in `$...$` for inline math and `$$...$$` for display math.
+"""
+
 class ChatCompletions():
     """
     A chat interface using OpenAI's Chat Completions API with optional 
@@ -32,7 +37,7 @@ class ChatCompletions():
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.client = openai.OpenAI(api_key=self.api_key)
         self.model = model
-        self.messages = []
+        self.messages = [{"role": "developer", "content": DEVELOPER_MESSAGE}]
         self.containers = []
         self.current_container = None
         self.functions = functions
