@@ -9,6 +9,7 @@ OpenAI’s built-in tools, such as function calling and file search.
 - [Schematic Diagram](#schematic-diagram)
 - [Function Calling](#function-calling)
 - [File Search](#file-search)
+- [Code Interpreter](#code-interpreter)
 
 # Installation
 
