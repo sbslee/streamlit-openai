@@ -142,3 +142,19 @@ if "chat" not in st.session_state:
 
 st.session_state.chat.run()
 ```
+
+# Retrieving an Existing Assistant
+You can retrieve an existing assistant by providing its ID when initializing
+the `Assistants` class. This allows you to continue a conversation with an
+existing assistant without losing context. Below is an example of how to
+retrieve an existing assistant in a chat interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Assistants(assistant_id="assistant_id")
+    
+st.session_state.chat.run()
+```
