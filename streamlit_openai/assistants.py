@@ -160,10 +160,20 @@ class AssistantEventHandler(openai.AssistantEventHandler):
 
     def on_text_delta(self, delta: TextDelta, snapshot: Text) -> None:
         """Handles streaming text output by updating the current container, stripping out annotations."""
+        if delta.annotations is not None:
+            for annotation in delta.annotations:
+                if annotation.type == "file_path":
+                    output_file = st.session_state.chat.client.files.retrieve(annotation.file_path.file_id)
+                    self.current_container.update_and_stream(
+                        "file",
+                        st.session_state.chat.client.files.content(output_file.id).read(),
+                        filename=os.path.basename(output_file.filename)
+                    )
         if delta.value is not None:
             self.current_container.update_and_stream("text", delta.value)
             self.current_container.last_block.content = re.sub(r"【.*?】", "", self.current_container.last_block.content)
-            
+            self.current_container.last_block.content = re.sub(r"\[.*?\]\(sandbox:/mnt/data/.*?\)", "", self.current_container.last_block.content)
+
     def on_tool_call_delta(self, delta: ToolCallDelta, snapshot: ToolCall) -> None:
         """Handles streaming tool call output, including function names and code interpreter input."""
         if delta.type == "function":
