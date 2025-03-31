@@ -1,3 +1,4 @@
+import openai
 import streamlit as st
 import os, tempfile
 from pathlib import Path
@@ -6,27 +7,25 @@ from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 class Block():
     """
-    Represents a single unit of content in a chat interface -- such as text, 
-    code, an image, or a file download.
+    Represents a single unit of content in a chat interface—such as text, 
+    code, an image, or a downloadable file.
 
-    A `Block` encapsulates and renders various types of messages in the chat 
-    UI. It combines the content with its category (e.g., text, code, image, or 
-    file) and includes the logic needed for proper display.
+    A `Block` encapsulates and renders various types of messages within the 
+    chat UI. It associates the content with its category (e.g., text, code, 
+    image, or download) and includes the logic required for proper display and 
+    interaction.
 
     Attributes:
-        category (str): The type of content ('text', 'code', 'image', or 'file').
-        content (str or bytes): The actual content of the block. This may be a string (for text and code) or bytes (for images and files).
-        filename (str): The name of the file associated with the block. Applicable only when the block represents a file.
+        category (str): The type of content ('text', 'code', 'image', or 'download').
+        content (str, bytes, or openai.File): The actual content of the block. This can be a string for text or code, bytes for images, or an `openai.File` object for downloadable files.
     """
     def __init__(
             self,
             category: str,
-            content: Optional[Union[str, bytes]] = None,
-            filename: Optional[str] = None,
+            content: Optional[Union[str, bytes, openai.File]] = None,
     ) -> None:
         self.category = category
         self.content = content
-        self.filename = filename
 
         if self.content is None:
             self.content = ""
@@ -54,17 +53,18 @@ class Block():
             st.code(self.content)
         elif self.category == "image":
             st.image(self.content)
-        elif self.category == "file":
-            if self.filename.endswith(".csv"):
+        elif self.category == "download":
+            filename = os.path.basename(self.content.filename)
+            if filename.endswith(".csv"):
                 mime = "text/csv"
-            elif self.filename.endswith(".png"):
+            elif filename.endswith(".png"):
                 mime = "image/png"
             else:
                 mime = "text/plain"
             st.download_button(
-                label=self.filename,
-                data=self.content,
-                file_name=self.filename,
+                label=filename,
+                data=st.session_state.chat.client.files.content(self.content.id).read(),
+                file_name=filename,
                 mime=mime,
                 icon=":material/download:"
             )
@@ -105,14 +105,14 @@ class Container():
         """Returns the last block in the container or None if empty."""
         return None if self.empty else self.blocks[-1]
 
-    def update(self, category, content, filename=None) -> None:
+    def update(self, category, content) -> None:
         """Updates the container with new content, appending or extending existing blocks."""
         if self.empty:
-            self.blocks = [Block(category, content, filename)]
+            self.blocks = [Block(category, content)]
         elif self.last_block.iscategory(category):
             self.last_block.content += content
         else:
-            self.blocks.append(Block(category, content, filename))
+            self.blocks.append(Block(category, content))
 
     def write(self) -> None:
         """Renders the container's content in the Streamlit chat interface."""
@@ -123,9 +123,9 @@ class Container():
                 for block in self.blocks:
                     block.write()
 
-    def update_and_stream(self, category, content, filename=None) -> None:
+    def update_and_stream(self, category, content) -> None:
         """Updates the container and streams the update live to the UI."""
-        self.update(category, content, filename)
+        self.update(category, content)
         self.stream()
 
     def stream(self) -> None:

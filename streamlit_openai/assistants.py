@@ -6,7 +6,6 @@ from .utils import Container, Block, TrackedFile, CustomFunction
 from openai.types.beta import AssistantStreamEvent
 from openai.types.beta.threads import Text, TextDelta, ImageFile
 from openai.types.beta.threads.runs import ToolCall, ToolCallDelta
-from openai import Stream
 
 DEVELOPER_MESSAGE = """
 - Your response must use GitHub-flavored Markdown.
@@ -163,11 +162,9 @@ class AssistantEventHandler(openai.AssistantEventHandler):
         if delta.annotations is not None:
             for annotation in delta.annotations:
                 if annotation.type == "file_path":
-                    output_file = st.session_state.chat.client.files.retrieve(annotation.file_path.file_id)
                     self.current_container.update_and_stream(
-                        "file",
-                        st.session_state.chat.client.files.content(output_file.id).read(),
-                        filename=os.path.basename(output_file.filename)
+                        "download",
+                        st.session_state.chat.client.files.retrieve(annotation.file_path.file_id)
                     )
         if delta.value is not None:
             self.current_container.update_and_stream("text", delta.value)
