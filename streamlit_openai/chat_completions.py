@@ -23,6 +23,8 @@ class ChatCompletions():
         api_key (str): API key for OpenAI. If not provided, fetched from environment variable `OPENAI_API_KEY`.
         model (str): The OpenAI model used for chat completions (default: "gpt-4o").
         functions (list): Optional list of custom function tools to be attached to the assistant.
+        user_avatar (str): An emoji, image URL, or file path that represents the user.
+        assistant_avatar (str): An emoji, image URL, or file path that represents the assistant.
         messages (list): The chat history in OpenAI's expected message format.
         containers (list): List to track the conversation history in structured form.
         current_container (Container): The current container being used for assistant messages.
@@ -33,6 +35,8 @@ class ChatCompletions():
             api_key: Optional[str] = None,
             model: Optional[str] = "gpt-4o",
             functions: Optional[List[CustomFunction]] = None,
+            user_avatar: Optional[str] = None,
+            assistant_avatar: Optional[str] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.client = openai.OpenAI(api_key=self.api_key)
@@ -41,6 +45,8 @@ class ChatCompletions():
         self.containers = []
         self.current_container = None
         self.functions = functions
+        self.user_avatar = user_avatar
+        self.assistant_avatar = assistant_avatar
         
         if self.functions is not None:
             self.tools = []

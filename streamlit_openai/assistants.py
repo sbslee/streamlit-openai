@@ -31,6 +31,8 @@ class Assistants():
         functions (list): Optional list of custom function tools to be attached to the assistant.
         file_search (bool): Whether file search capability should be enabled.
         code_interpreter (bool): Whether code interpreter tool should be enabled.
+        user_avatar (str): An emoji, image URL, or file path that represents the user.
+        assistant_avatar (str): An emoji, image URL, or file path that represents the assistant.
         containers (list): List to track the conversation history in structured form.
         current_container (Container): The current container being used for assistant messages.
         tools (list): Tools (custom functions, file search, code interpreter) enabled for the assistant.
@@ -47,6 +49,8 @@ class Assistants():
             functions: Optional[List[CustomFunction]] = None,
             file_search: bool = False,
             code_interpreter: bool = False,
+            user_avatar: Optional[str] = None,
+            assistant_avatar: Optional[str] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.client = openai.OpenAI(api_key=self.api_key)
@@ -58,6 +62,8 @@ class Assistants():
         self.tracked_files = []
         self.file_search = file_search
         self.code_interpreter = code_interpreter
+        self.user_avatar = user_avatar
+        self.assistant_avatar = assistant_avatar
         self.assistant_id = assistant_id
         self.assistant = None
         self.thread = None

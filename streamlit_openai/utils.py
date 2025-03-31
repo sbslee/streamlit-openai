@@ -101,7 +101,7 @@ class Container():
         if self.empty:
             pass
         else:
-            with st.chat_message(self.role):
+            with st.chat_message(self.role, avatar=st.session_state.chat.user_avatar if self.role == "user" else st.session_state.chat.assistant_avatar):
                 for block in self.blocks:
                     block.write()
 

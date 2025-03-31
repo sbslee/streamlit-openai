@@ -10,6 +10,8 @@ OpenAI’s built-in tools, such as function calling and file search.
 - [Function Calling](#function-calling)
 - [File Search](#file-search)
 - [Code Interpreter](#code-interpreter)
+- [Existing Assistant Retrieval](#existing-assistant-retrieval)
+- [Avatar Image Customization](#avatar-image-customization)
 
 # Installation
 
@@ -143,7 +145,7 @@ if "chat" not in st.session_state:
 st.session_state.chat.run()
 ```
 
-# Retrieving an Existing Assistant
+# Existing Assistant Retrieval
 You can retrieve an existing assistant by providing its ID when initializing
 the `Assistants` class. This allows you to continue a conversation with an
 existing assistant without losing context. Below is an example of how to
@@ -156,5 +158,21 @@ import streamlit_openai
 if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.Assistants(assistant_id="assistant_id")
     
+st.session_state.chat.run()
+```
+
+# Avatar Image Customization
+You can customize the avatar images for the assistant and user in the chat interface
+by providing the `assistant_avatar` and `user_avatar` parameters when initializing
+the `ChatCompletions` or `Assistants` class. Below is an example of how to
+customize the avatar images in a chat interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.ChatCompletions(assistant_avatar="🦖")
+
 st.session_state.chat.run()
 ```
