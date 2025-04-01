@@ -33,13 +33,16 @@ class Block():
             self.content = content
 
     def __repr__(self) -> None:
-        if self.category == "text" or self.category == "code":
+        if self.category in ["text", "code"]:
             content = self.content
-            if len(content) > 50:
-                content = content[:30] + "..."
+            if len(content) > 30:
+                content = content[:30].strip() + "..."
+            content = repr(content)
         elif self.category == "image":
             content = "Bytes"
-        return f"Block('category={self.category}', content='{content}')"
+        elif self.category == "download":
+            content = f"File(filename='{os.path.basename(self.content.filename)}')"
+        return f"Block(category='{self.category}', content={content})"
 
     def iscategory(self, category) -> bool:
         """Checks if the block belongs to the specified category."""
@@ -109,7 +112,7 @@ class Container():
         """Updates the container with new content, appending or extending existing blocks."""
         if self.empty:
             self.blocks = [Block(category, content)]
-        elif self.last_block.iscategory(category):
+        elif category in ["text", "code"] and self.last_block.iscategory(category):
             self.last_block.content += content
         else:
             self.blocks.append(Block(category, content))
