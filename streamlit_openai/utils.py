@@ -69,8 +69,10 @@ class Block():
                 data=st.session_state.chat.client.files.content(self.content.id).read(),
                 file_name=filename,
                 mime=mime,
-                icon=":material/download:"
+                icon=":material/download:",
+                key=st.session_state.chat.download_button_key,
             )
+            st.session_state.chat.download_button_key += 1
 
 class Container():
     """
