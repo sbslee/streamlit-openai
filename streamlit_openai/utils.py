@@ -159,6 +159,11 @@ class TrackedFile():
         return f"TrackedFile(uploaded_file='{self.uploaded_file.name}', deleted={self.removed})"
 
     def to_openai(self) -> None:
+        tools = []
+        if st.session_state.chat.file_search:
+            tools.append({"type": "file_search"})
+        if st.session_state.chat.code_interpreter:
+            tools.append({"type": "code_interpreter"})
         with tempfile.TemporaryDirectory() as t:
             file_path = os.path.join(t, self.uploaded_file.name)
             with open(file_path, "wb") as f:
@@ -168,7 +173,7 @@ class TrackedFile():
                 thread_id=st.session_state.chat.thread.id,
                 role="user",    
                 content=f"File uploaded: {self.uploaded_file.name}",
-                attachments=[{"file_id": self.openai_file.id, "tools": [{"type": "file_search"}]}]
+                attachments=[{"file_id": self.openai_file.id, "tools": tools}],
             )
 
     def remove(self) -> None:
