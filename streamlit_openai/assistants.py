@@ -1,6 +1,7 @@
 import streamlit as st
 import openai
 import os, json, re
+from pathlib import Path
 from typing import Optional, List
 from .utils import Container, Block, TrackedFile, CustomFunction
 from openai.types.beta import AssistantStreamEvent
@@ -37,6 +38,7 @@ class Assistants():
         temperature (float): Sampling temperature for the model (default: 1.0).
         placeholder (str): Placeholder text for the chat input box (default: "Your message").
         welcome_message (str): Welcome message from the assistant.
+        message_files (list): List of files to be uploaded to the assistant during initialization.
         containers (list): List to track the conversation history in structured form.
         tools (list): Tools (custom functions, file search, code interpreter) enabled for the assistant.
         tracked_files (list): List of files being tracked for uploads/removals.
@@ -58,6 +60,7 @@ class Assistants():
             temperature: Optional[float] = 1.0,
             placeholder: Optional[str] = "Your message",
             welcome_message: Optional[str] = None,
+            message_files: Optional[List[str]] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.client = openai.OpenAI(api_key=self.api_key)
@@ -73,6 +76,7 @@ class Assistants():
         self.temperature = temperature
         self.placeholder = placeholder
         self.welcome_message = welcome_message
+        self.message_files = message_files
         self.assistant_avatar = assistant_avatar
         self.assistant_id = assistant_id
         self.assistant = None
@@ -113,6 +117,17 @@ class Assistants():
             self.containers.append(
                 Container("assistant", blocks=[Block("text", self.welcome_message)])
             )
+
+        # If message files are provided, upload them to the assistant
+        if self.message_files is not None:
+            for message_file in self.message_files:
+                openai_file = self.client.files.create(file=Path(message_file), purpose="assistants")
+                self.client.beta.threads.messages.create(
+                    thread_id=self.thread.id,
+                    role="user",    
+                    content=f"File uploaded: {os.path.basename(message_file)})",
+                    attachments=[{"file_id": openai_file.id, "tools": self.tools}],
+                )
 
     @property
     def last_container(self) -> Optional[Container]:
