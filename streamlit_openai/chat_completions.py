@@ -32,7 +32,6 @@ class ChatCompletions():
         client (openai.OpenAI): The OpenAI client instance for API calls.
         messages (list): The chat history in OpenAI's expected message format.
         containers (list): List to track the conversation history in structured form.
-        current_container (Container): The current container being used for assistant messages.
         tools (list): A list of tools derived from function definitions for the assistant to call.
     """
     def __init__(
@@ -59,7 +58,6 @@ class ChatCompletions():
         self.client = openai.OpenAI(api_key=self.api_key)
         self.messages = [{"role": "developer", "content": DEVELOPER_MESSAGE+self.instructions}]
         self.containers = []
-        self.current_container = None
         
         if self.functions is not None:
             self.tools = []
@@ -70,8 +68,14 @@ class ChatCompletions():
         # If a welcome message is provided, add it to the chat history
         if self.welcome_message is not None:
             self.messages.append({"role": "assistant", "content": self.welcome_message})
-            self.current_container = Container("assistant", blocks=[Block("text", self.welcome_message)])
-            self.containers.append(self.current_container)
+            self.containers.append(
+                Container("assistant", blocks=[Block("text", self.welcome_message)])
+            )
+
+    @property
+    def last_container(self) -> Optional[Container]:
+        """Returns the last container or None if empty."""
+        return self.containers[-1] if self.containers else None
 
     def _respond1(self) -> None:
         """Streams a simple assistant response without tool usage."""
@@ -84,7 +88,7 @@ class ChatCompletions():
         self.messages.append({"role": "assistant", "content": chunks})
         for x in chunks:
             if x.choices[0].delta.content is not None:
-                self.current_container.update_and_stream("text", x.choices[0].delta.content)
+                self.last_container.update_and_stream("text", x.choices[0].delta.content)
 
     def _respond2(self) -> None:
         """Streams assistant response with support for tool calls."""
@@ -100,7 +104,7 @@ class ChatCompletions():
         used_tools = {}
         for x in chunks:
             if x.choices[0].delta.content is not None:
-                self.current_container.update_and_stream("text", x.choices[0].delta.content)
+                self.last_container.update_and_stream("text", x.choices[0].delta.content)
             if x.choices[0].finish_reason == "tool_calls":
                 used_tools[current_tool["name"]] = current_tool
                 current_tool = {}
@@ -145,18 +149,17 @@ class ChatCompletions():
 
             for x in chunks:
                 if x.choices[0].delta.content is not None:
-                    self.current_container.update_and_stream("text", x.choices[0].delta.content)
+                    self.last_container.update_and_stream("text", x.choices[0].delta.content)
         
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
-        self.current_container = Container("assistant")
         self.messages.append({"role": "user", "content": prompt})
+        self.containers.append(Container("assistant"))
         if self.functions is None:
             self._respond1()
         else:
             self._respond2()
-        self.containers.append(self.current_container)
-
+        
     def run(self) -> None:
         """Runs the main assistant loop: handles user messages."""
         for container in self.containers:

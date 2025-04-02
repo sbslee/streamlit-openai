@@ -38,7 +38,6 @@ class Assistants():
         placeholder (str): Placeholder text for the chat input box (default: "Your message").
         welcome_message (str): Welcome message from the assistant.
         containers (list): List to track the conversation history in structured form.
-        current_container (Container): The current container being used for assistant messages.
         tools (list): Tools (custom functions, file search, code interpreter) enabled for the assistant.
         tracked_files (list): List of files being tracked for uploads/removals.
         assistant (Assistant): The instantiated or retrieved OpenAI assistant.
@@ -64,7 +63,6 @@ class Assistants():
         self.client = openai.OpenAI(api_key=self.api_key)
         self.model = model
         self.containers = []
-        self.current_container = None
         self.functions = functions
         self.tools = None
         self.tracked_files = []
@@ -112,8 +110,14 @@ class Assistants():
                 role="assistant",
                 content=self.welcome_message,
             )
-            self.current_container = Container("assistant", blocks=[Block("text", self.welcome_message)])
-            self.containers.append(self.current_container)
+            self.containers.append(
+                Container("assistant", blocks=[Block("text", self.welcome_message)])
+            )
+
+    @property
+    def last_container(self) -> Optional[Container]:
+        """Returns the last container or None if empty."""
+        return self.containers[-1] if self.containers else None
 
     def run(self, uploaded_files=None) -> None:
         """Runs the main assistant loop: handles file input and user messages."""
@@ -130,7 +134,7 @@ class Assistants():
 
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
-        self.current_container = Container("assistant")
+        self.containers.append(Container("assistant"))
         self.client.beta.threads.messages.create(
             thread_id=self.thread.id,
             role="user",
@@ -142,8 +146,7 @@ class Assistants():
             assistant_id=self.assistant.id,
         ) as stream:
             stream.until_done()
-        self.containers.append(self.current_container)
-
+        
     def handle_files(self, uploaded_files) -> None:
         """Handles uploaded files and manages tracked file lifecycle."""
         # Handle file uploads
@@ -181,35 +184,35 @@ class AssistantEventHandler(openai.AssistantEventHandler):
     """
     def __init__(self) -> None:
         super().__init__()
-        self.current_container = st.session_state.chat.current_container
+        self.last_container = st.session_state.chat.last_container
 
     def on_text_delta(self, delta: TextDelta, snapshot: Text) -> None:
-        """Handles streaming text output by updating the current container, stripping out annotations."""
+        """Handles streaming text output by updating the last container, stripping out annotations."""
         if delta.annotations is not None:
             for annotation in delta.annotations:
                 if annotation.type == "file_path":
-                    self.current_container.update_and_stream(
+                    self.last_container.update_and_stream(
                         "download",
                         st.session_state.chat.client.files.retrieve(annotation.file_path.file_id)
                     )
         if delta.value is not None:
-            self.current_container.update_and_stream("text", delta.value)
-            self.current_container.last_block.content = re.sub(r"【.*?】", "", self.current_container.last_block.content)
-            self.current_container.last_block.content = re.sub(r"\[.*?\]\(sandbox:/mnt/data/.*?\)", "", self.current_container.last_block.content)
+            self.last_container.update_and_stream("text", delta.value)
+            self.last_container.last_block.content = re.sub(r"【.*?】", "", self.last_container.last_block.content)
+            self.last_container.last_block.content = re.sub(r"\[.*?\]\(sandbox:/mnt/data/.*?\)", "", self.last_container.last_block.content)
 
     def on_tool_call_delta(self, delta: ToolCallDelta, snapshot: ToolCall) -> None:
         """Handles streaming tool call output, including function names and code interpreter input."""
         if delta.type == "function":
-            self.current_container.stream()
+            self.last_container.stream()
         elif delta.type == "code_interpreter":
             if delta.code_interpreter.input:
-                self.current_container.update_and_stream("code", delta.code_interpreter.input)
+                self.last_container.update_and_stream("code", delta.code_interpreter.input)
 
     def on_image_file_done(self, image_file: ImageFile) -> None:
         """Handles image file completion and streams the image to the chat container."""
         image_data = st.session_state.chat.client.files.content(image_file.file_id)
         image_data_bytes = image_data.read()
-        self.current_container.update_and_stream("image", image_data_bytes)
+        self.last_container.update_and_stream("image", image_data_bytes)
 
     def submit_tool_outputs(self, tool_outputs, run_id) -> None:
         """Submits outputs of tool calls back to the assistant and streams the result."""
