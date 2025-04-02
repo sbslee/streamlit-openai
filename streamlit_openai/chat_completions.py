@@ -26,6 +26,7 @@ class ChatCompletions():
         user_avatar (str): An emoji, image URL, or file path that represents the user.
         assistant_avatar (str): An emoji, image URL, or file path that represents the assistant.
         instructions (str): Instructions for the assistant.
+        temperature (float): Sampling temperature for the model (default: 1.0).
         client (openai.OpenAI): The OpenAI client instance for API calls.
         messages (list): The chat history in OpenAI's expected message format.
         containers (list): List to track the conversation history in structured form.
@@ -40,6 +41,7 @@ class ChatCompletions():
             user_avatar: Optional[str] = None,
             assistant_avatar: Optional[str] = None,
             instructions: Optional[str] = None,
+            temperature: Optional[float] = 1.0,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.model = model
@@ -47,6 +49,7 @@ class ChatCompletions():
         self.user_avatar = user_avatar
         self.assistant_avatar = assistant_avatar
         self.instructions = "" if instructions is None else instructions
+        self.temperature = temperature
         self.client = openai.OpenAI(api_key=self.api_key)
         self.messages = [{"role": "developer", "content": DEVELOPER_MESSAGE+self.instructions}]
         self.containers = []
@@ -64,6 +67,7 @@ class ChatCompletions():
             model=self.model,
             messages=self.messages,
             stream=True,
+            temperature=self.temperature,
         )
         self.messages.append({"role": "assistant", "content": chunks})
         for x in chunks:
@@ -76,6 +80,7 @@ class ChatCompletions():
             model=self.model,
             messages=self.messages,
             stream=True,
+            temperature=self.temperature,
             tools=self.tools,
         )
         self.messages.append({"role": "assistant", "content": chunks})
@@ -122,6 +127,7 @@ class ChatCompletions():
                 model=self.model,
                 messages=self.messages,
                 stream=True,
+                temperature=self.temperature,
             )
             self.messages.append({"role": "assistant", "content": chunks})
 
