@@ -27,6 +27,7 @@ class ChatCompletions():
         assistant_avatar (str): An emoji, image URL, or file path that represents the assistant.
         instructions (str): Instructions for the assistant.
         temperature (float): Sampling temperature for the model (default: 1.0).
+        placeholder (str): Placeholder text for the chat input box (default: "Your message").
         client (openai.OpenAI): The OpenAI client instance for API calls.
         messages (list): The chat history in OpenAI's expected message format.
         containers (list): List to track the conversation history in structured form.
@@ -42,6 +43,7 @@ class ChatCompletions():
             assistant_avatar: Optional[str] = None,
             instructions: Optional[str] = None,
             temperature: Optional[float] = 1.0,
+            placeholder: Optional[str] = "Your message",
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.model = model
@@ -50,6 +52,7 @@ class ChatCompletions():
         self.assistant_avatar = assistant_avatar
         self.instructions = "" if instructions is None else instructions
         self.temperature = temperature
+        self.placeholder = placeholder
         self.client = openai.OpenAI(api_key=self.api_key)
         self.messages = [{"role": "developer", "content": DEVELOPER_MESSAGE+self.instructions}]
         self.containers = []
@@ -149,7 +152,7 @@ class ChatCompletions():
         """Runs the main assistant loop: handles user messages."""
         for container in self.containers:
             container.write()
-        if prompt := st.chat_input():
+        if prompt := st.chat_input(placeholder=self.placeholder):
             with st.chat_message("user"):
                 st.markdown(prompt)
             self.containers.append(
