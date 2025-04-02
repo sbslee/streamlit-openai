@@ -5,6 +5,25 @@ from pathlib import Path
 from typing import Optional, List, Union, Callable, Dict, Any
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
+MIME_TYPES = {
+    "txt" : "text/plain",
+    "csv" : "text/csv",
+    "tsv" : "text/tab-separated-values",
+    "html": "text/html",
+    "yaml": "text/yaml",
+    "md"  : "text/markdown",
+    "png" : "image/png",
+    "jpg" : "image/jpeg",
+    "jpeg": "image/jpeg",
+    "gif" : "image/gif",
+    "xml" : "application/xml",
+    "json": "application/json",
+    "pdf" : "application/pdf",
+    "zip" : "application/zip",
+    "tar" : "application/x-tar",
+    "gz"  : "application/gzip",
+}
+
 class Block():
     """
     Represents a single unit of content in a chat interface—such as text, 
@@ -58,17 +77,12 @@ class Block():
             st.image(self.content)
         elif self.category == "download":
             filename = os.path.basename(self.content.filename)
-            if filename.endswith(".csv"):
-                mime = "text/csv"
-            elif filename.endswith(".png"):
-                mime = "image/png"
-            else:
-                mime = "text/plain"
+            _, file_extension = os.path.splitext(filename)
             st.download_button(
                 label=filename,
                 data=st.session_state.chat.client.files.content(self.content.id).read(),
                 file_name=filename,
-                mime=mime,
+                mime=MIME_TYPES[file_extension.lstrip(".")],
                 icon=":material/download:",
                 key=st.session_state.chat.download_button_key,
             )
