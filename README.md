@@ -156,7 +156,7 @@ import streamlit as st
 import streamlit_openai
 
 if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.Assistants(assistant_id="assistant_id")
+    st.session_state.chat = streamlit_openai.Assistants(assistant_id="asst_...")
     
 st.session_state.chat.run()
 ```
