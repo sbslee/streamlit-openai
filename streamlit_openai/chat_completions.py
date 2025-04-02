@@ -5,7 +5,7 @@ from typing import Optional, List
 from .utils import Container, Block, CustomFunction
 
 DEVELOPER_MESSAGE = """
-- Your response must use GitHub-flavored Markdown.
+- Use GitHub-flavored Markdown in your response, including tables, code blocks, and lists.
 - Wrap all mathematical expressions and LaTeX terms in `$...$` for inline math and `$$...$$` for display math.
 """
 

@@ -8,7 +8,7 @@ from openai.types.beta.threads import Text, TextDelta, ImageFile
 from openai.types.beta.threads.runs import ToolCall, ToolCallDelta
 
 DEVELOPER_MESSAGE = """
-- Your response must use GitHub-flavored Markdown.
+- Use GitHub-flavored Markdown in your response, including tables, code blocks, and lists.
 - Wrap all mathematical expressions and LaTeX terms in `$...$` for inline math and `$$...$$` for display math.
 - These instructions apply only when your response includes one or more `sandbox:/mnt/data/*` links. All such links will be automatically converted into download buttons by the chat interface. Be sure to refer to them appropriately. For example, instead of saying "You can download them using the links below," say "You can download them using the download buttons below." At the end of your response, place each sandbox link as a standalone hyperlink on its own line with no additional formatting -- do not include them in a list, table, or any other structured format. This is important, as each hyperlink will be rendered as a separate download button.
 """
