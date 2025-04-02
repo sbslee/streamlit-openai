@@ -33,6 +33,7 @@ class Assistants():
         code_interpreter (bool): Whether code interpreter tool should be enabled.
         user_avatar (str): An emoji, image URL, or file path that represents the user.
         assistant_avatar (str): An emoji, image URL, or file path that represents the assistant.
+        instructions (str): Instructions for the assistant.
         containers (list): List to track the conversation history in structured form.
         current_container (Container): The current container being used for assistant messages.
         tools (list): Tools (custom functions, file search, code interpreter) enabled for the assistant.
@@ -51,6 +52,7 @@ class Assistants():
             code_interpreter: bool = False,
             user_avatar: Optional[str] = None,
             assistant_avatar: Optional[str] = None,
+            instructions: Optional[str] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.client = openai.OpenAI(api_key=self.api_key)
@@ -63,6 +65,7 @@ class Assistants():
         self.file_search = file_search
         self.code_interpreter = code_interpreter
         self.user_avatar = user_avatar
+        self.instructions = "" if instructions is None else instructions
         self.assistant_avatar = assistant_avatar
         self.assistant_id = assistant_id
         self.assistant = None
@@ -79,10 +82,11 @@ class Assistants():
             for function in self.functions:
                 self.tools.append({"type": "function", "function": function.definition})
 
+        # Create or retrieve the assistant
         if self.assistant_id is None:
             self.assistant = self.client.beta.assistants.create(
                 name=name,
-                instructions=DEVELOPER_MESSAGE,
+                instructions=DEVELOPER_MESSAGE+self.instructions,
                 model=self.model,
                 tools=self.tools,
             )

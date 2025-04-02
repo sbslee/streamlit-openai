@@ -25,6 +25,8 @@ class ChatCompletions():
         functions (list): Optional list of custom function tools to be attached to the assistant.
         user_avatar (str): An emoji, image URL, or file path that represents the user.
         assistant_avatar (str): An emoji, image URL, or file path that represents the assistant.
+        instructions (str): Instructions for the assistant.
+        client (openai.OpenAI): The OpenAI client instance for API calls.
         messages (list): The chat history in OpenAI's expected message format.
         containers (list): List to track the conversation history in structured form.
         current_container (Container): The current container being used for assistant messages.
@@ -37,16 +39,18 @@ class ChatCompletions():
             functions: Optional[List[CustomFunction]] = None,
             user_avatar: Optional[str] = None,
             assistant_avatar: Optional[str] = None,
+            instructions: Optional[str] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
-        self.client = openai.OpenAI(api_key=self.api_key)
         self.model = model
-        self.messages = [{"role": "developer", "content": DEVELOPER_MESSAGE}]
-        self.containers = []
-        self.current_container = None
         self.functions = functions
         self.user_avatar = user_avatar
         self.assistant_avatar = assistant_avatar
+        self.instructions = "" if instructions is None else instructions
+        self.client = openai.OpenAI(api_key=self.api_key)
+        self.messages = [{"role": "developer", "content": DEVELOPER_MESSAGE+self.instructions}]
+        self.containers = []
+        self.current_container = None
         
         if self.functions is not None:
             self.tools = []
