@@ -6,7 +6,7 @@ from typing import Optional, List
 from .utils import Container, Block, CustomFunction, TrackedFile
 
 DEVELOPER_MESSAGE = """
-- Use GitHub-flavored Markdown in your response, including tables, code blocks, and lists.
+- Use GitHub-flavored Markdown in your response, including tables, images, URLs, code blocks, and lists.
 - Wrap all mathematical expressions and LaTeX terms in `$...$` for inline math and `$$...$$` for display math.
 """
 
