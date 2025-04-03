@@ -14,7 +14,8 @@ OpenAI’s built-in tools, such as function calling and file search.
   - [File Search](#file-search)
   - [Code Interpreter](#code-interpreter)
   - [Existing Assistant Retrieval](#existing-assistant-retrieval)
-- [Avatar Image Customization](#avatar-image-customization)
+- [Customization](#customization)
+  - [Avatar Image](#avatar-image)
 
 # Installation
 
@@ -165,7 +166,7 @@ if "chat" not in st.session_state:
     
     generate_image = streamlit_openai.utils.CustomFunction(definition, function)
 
-    st.session_state.chat = streamlit_openai.ChatCompletions(
+    st.session_state.chat = streamlit_openai.Assistants(
         functions=[generate_image],
     )
 
@@ -228,7 +229,9 @@ if "chat" not in st.session_state:
 st.session_state.chat.run()
 ```
 
-# Avatar Image Customization
+# Customization
+
+## Avatar Image
 You can customize the avatar images for the assistant and user in the chat interface
 by providing the `assistant_avatar` and `user_avatar` parameters when initializing
 the `ChatCompletions` or `Assistants` class. Below is an example of how to
