@@ -3,7 +3,7 @@ import openai
 import os, json
 from pathlib import Path
 from typing import Optional, List
-from .utils import Container, Block, CustomFunction
+from .utils import Container, Block, CustomFunction, TrackedFile
 
 DEVELOPER_MESSAGE = """
 - Use GitHub-flavored Markdown in your response, including tables, code blocks, and lists.
@@ -62,6 +62,7 @@ class ChatCompletions():
         self.client = openai.OpenAI(api_key=self.api_key)
         self.messages = [{"role": "developer", "content": DEVELOPER_MESSAGE+self.instructions}]
         self.containers = []
+        self.tracked_files = []
         
         if self.functions is not None:
             self.tools = []
@@ -80,7 +81,13 @@ class ChatCompletions():
         if self.message_files is not None:
             for message_file in self.message_files:
                 openai_file = self.client.files.create(file=Path(message_file), purpose="user_data")
-                self.messages.append({"role": "user", "content": [{"type": "file", "file": {"file_id": openai_file.id}}]})
+                self.messages.append(
+                    {"role": "user",
+                     "content": [
+                         {"type": "file", "file": {"file_id": openai_file.id}},
+                         {"type": "text", "text": f"File uploaded: {os.path.basename(message_file)})"}
+                     ]}
+                )
 
     @property
     def last_container(self) -> Optional[Container]:
@@ -170,8 +177,9 @@ class ChatCompletions():
         else:
             self._respond2()
         
-    def run(self) -> None:
+    def run(self, uploaded_files=None) -> None:
         """Runs the main assistant loop: handles user messages."""
+        self.handle_files(uploaded_files)
         for container in self.containers:
             container.write()
         if prompt := st.chat_input(placeholder=self.placeholder):
@@ -181,3 +189,28 @@ class ChatCompletions():
                 Container("user", blocks=[Block("text", prompt)])
             )
             self.respond(prompt)
+
+    def handle_files(self, uploaded_files) -> None:
+        """Handles uploaded files and manages tracked file lifecycle."""
+        # Handle file uploads
+        if uploaded_files is None:
+            return
+        else:
+            for uploaded_file in uploaded_files:
+                if uploaded_file.file_id in [x.uploaded_file.file_id for x in self.tracked_files]:
+                    continue
+                tracked_file = TrackedFile(uploaded_file)
+                tracked_file.to_openai()
+                self.tracked_files.append(tracked_file)
+
+        # Handle file removals
+        for tracked_file in self.tracked_files:
+            if tracked_file.removed:
+                continue
+            else:
+                if uploaded_files is None:
+                    tracked_file.remove()
+                elif tracked_file.uploaded_file.file_id not in [x.file_id for x in uploaded_files]:
+                    tracked_file.remove()
+                else:
+                    continue

@@ -173,22 +173,36 @@ class TrackedFile():
         return f"TrackedFile(uploaded_file='{self.uploaded_file.name}', deleted={self.removed})"
 
     def to_openai(self) -> None:
-        tools = []
-        if st.session_state.chat.file_search:
-            tools.append({"type": "file_search"})
-        if st.session_state.chat.code_interpreter:
-            tools.append({"type": "code_interpreter"})
-        with tempfile.TemporaryDirectory() as t:
-            file_path = os.path.join(t, self.uploaded_file.name)
-            with open(file_path, "wb") as f:
-                f.write(self.uploaded_file.getvalue())
-            self.openai_file = st.session_state.chat.client.files.create(file=Path(file_path), purpose="assistants")
-            st.session_state.chat.client.beta.threads.messages.create(
-                thread_id=st.session_state.chat.thread.id,
-                role="user",    
-                content=f"File uploaded: {self.uploaded_file.name}",
-                attachments=[{"file_id": self.openai_file.id, "tools": tools}],
-            )
+        if st.session_state.chat.__class__.__name__ == "ChatCompletions":
+            with tempfile.TemporaryDirectory() as t:
+                file_path = os.path.join(t, self.uploaded_file.name)
+                with open(file_path, "wb") as f:
+                    f.write(self.uploaded_file.getvalue())
+                self.openai_file = st.session_state.chat.client.files.create(file=Path(file_path), purpose="user_data")
+                st.session_state.chat.messages.append(
+                    {"role": "user",
+                     "content": [
+                         {"type": "file", "file": {"file_id": self.openai_file.id}},
+                         {"type": "text", "text": f"File uploaded: {os.path.basename(file_path)})"}
+                     ]}
+                )
+        else:
+            tools = []
+            if st.session_state.chat.file_search:
+                tools.append({"type": "file_search"})
+            if st.session_state.chat.code_interpreter:
+                tools.append({"type": "code_interpreter"})
+            with tempfile.TemporaryDirectory() as t:
+                file_path = os.path.join(t, self.uploaded_file.name)
+                with open(file_path, "wb") as f:
+                    f.write(self.uploaded_file.getvalue())
+                self.openai_file = st.session_state.chat.client.files.create(file=Path(file_path), purpose="assistants")
+                st.session_state.chat.client.beta.threads.messages.create(
+                    thread_id=st.session_state.chat.thread.id,
+                    role="user",    
+                    content=f"File uploaded: {self.uploaded_file.name}",
+                    attachments=[{"file_id": self.openai_file.id, "tools": tools}],
+                )
 
     def remove(self) -> None:
         response = st.session_state.chat.client.files.delete(self.openai_file.id)
