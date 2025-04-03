@@ -7,10 +7,11 @@ OpenAI’s built-in tools, such as function calling and file search.
 - [Installation](#installation)
 - [Usage](#usage)
 - [Schematic Diagram](#schematic-diagram)
-- [Function Calling](#function-calling)
-- [File Search](#file-search)
-- [Code Interpreter](#code-interpreter)
-- [Existing Assistant Retrieval](#existing-assistant-retrieval)
+- [Using Assistants API](#using-assistants-api)
+  - [Function Calling](#function-calling)
+  - [File Search](#file-search)
+  - [Code Interpreter](#code-interpreter)
+  - [Existing Assistant Retrieval](#existing-assistant-retrieval)
 - [Avatar Image Customization](#avatar-image-customization)
 
 # Installation
@@ -56,7 +57,9 @@ to create a chat interface:
 
 ![Schematic diagram](schematic_diagram.png)
 
-# Function Calling
+# Using Assistants API
+
+## Function Calling
 
 You can define and call custom functions within a chat using OpenAI’s function 
 calling capabilities. To create a custom function, define a `CustomFunction` 
@@ -105,7 +108,7 @@ if "chat" not in st.session_state:
 st.session_state.chat.run()
 ```
 
-# File Search
+## File Search
 
 You can allow models to search your files for relevant information before 
 generating a response by using OpenAI’s file search capabilities. To enable 
@@ -126,7 +129,7 @@ uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=
 st.session_state.chat.run(uploaded_files=uploaded_files)
 ```
 
-# Code Interpreter
+## Code Interpreter
 
 You can allow models to run Python code in a sandboxed execution environment 
 using OpenAI’s code interpreter capabilities. To enable code interpreter, set 
@@ -145,7 +148,7 @@ if "chat" not in st.session_state:
 st.session_state.chat.run()
 ```
 
-# Existing Assistant Retrieval
+## Existing Assistant Retrieval
 You can retrieve an existing assistant by providing its ID when initializing
 the `Assistants` class. This allows you to continue a conversation with an
 existing assistant without losing context. Below is an example of how to
