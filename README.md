@@ -8,9 +8,9 @@ OpenAI’s built-in tools, such as function calling and file search.
 - [Usage](#usage)
 - [Schematic Diagram](#schematic-diagram)
 - [Chat Completions API](#chat-completions-api)
-  - [Function Calling 1](#function-calling-1)
+  - [Function Calling](#function-calling)
 - [Assistants API](#assistants-api)
-  - [Function Calling 2](#function-calling-2)
+  - [Function Calling](#function-calling-1)
   - [File Search](#file-search)
   - [Code Interpreter](#code-interpreter)
   - [Existing Assistant Retrieval](#existing-assistant-retrieval)
@@ -67,7 +67,7 @@ which allows you to create a chat interface with a single assistant. The
 the assistant and receiving responses. It also supports OpenAI’s built-in
 tools, such as file input and function calling.
 
-## Function Calling 1
+## Function Calling
 
 You can define and call custom functions within a chat using OpenAI’s function 
 calling capabilities. To create a custom function, define a `CustomFunction` 
@@ -123,7 +123,7 @@ allows you to create and manage assistants that can perform various tasks. The
 `Assistants` class provides a simple interface for creating, updating, and
 retrieving assistants, as well as managing their state and context.
 
-## Function Calling 2
+## Function Calling
 
 You can define and call custom functions within a chat using OpenAI’s function 
 calling capabilities. To create a custom function, define a `CustomFunction` 
