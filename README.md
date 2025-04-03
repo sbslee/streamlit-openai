@@ -7,7 +7,9 @@ OpenAI’s built-in tools, such as function calling and file search.
 - [Installation](#installation)
 - [Usage](#usage)
 - [Schematic Diagram](#schematic-diagram)
-- [Using Assistants API](#using-assistants-api)
+- [Chat Completions API](#chat-completions-api)
+  - [Function Calling](#function-calling)
+- [Assistants API](#assistants-api)
   - [Function Calling](#function-calling)
   - [File Search](#file-search)
   - [Code Interpreter](#code-interpreter)
@@ -57,7 +59,69 @@ to create a chat interface:
 
 ![Schematic diagram](schematic_diagram.png)
 
-# Using Assistants API
+# Chat Completions API
+
+The `ChatCompletions` class is a wrapper around OpenAI’s Chat Completions API,
+which allows you to create a chat interface with a single assistant. The
+`ChatCompletions` class provides a simple interface for sending messages to
+the assistant and receiving responses. It also supports OpenAI’s built-in
+tools, such as file input and function calling.
+
+## Function Calling
+
+You can define and call custom functions within a chat using OpenAI’s function 
+calling capabilities. To create a custom function, define a `CustomFunction` 
+class that takes two input arguments: `definition` (a dictionary describing 
+the function) and `function` (the actual callable method). Below is an example 
+of a custom function that generates an image based on a given prompt:
+
+```python
+import streamlit as st
+import openai
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    definition = {
+        "name": "generate_image",
+        "description": "Generate an image based on a given prompt.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "A description of the image to be generated.",
+                }
+            },
+            "required": ["prompt"]
+        }
+    }
+
+    def function(prompt):
+        client = openai.OpenAI()
+        response = client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1,
+        )
+        return response.data[0].url
+    
+    generate_image = streamlit_openai.utils.CustomFunction(definition, function)
+
+    st.session_state.chat = streamlit_openai.ChatCompletions(
+        functions=[generate_image],
+    )
+
+st.session_state.chat.run()
+```
+
+# Assistants API
+
+The `Assistants` class is a wrapper around OpenAI’s Assistants API, which 
+allows you to create and manage assistants that can perform various tasks. The
+`Assistants` class provides a simple interface for creating, updating, and
+retrieving assistants, as well as managing their state and context.
 
 ## Function Calling
 
