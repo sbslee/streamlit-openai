@@ -8,10 +8,11 @@ OpenAI’s built-in tools, such as function calling and file search.
 - [Usage](#usage)
 - [Schematic Diagram](#schematic-diagram)
 - [Chat Completions API](#chat-completions-api)
-  - [File Inputs](#file-inputs)
   - [Function Calling](#function-calling)
+  - [File Inputs](#file-inputs)
 - [Assistants API](#assistants-api)
   - [Function Calling](#function-calling-1)
+  - [File Inputs](#file-inputs-1)
   - [File Search](#file-search)
   - [Code Interpreter](#code-interpreter)
   - [Existing Assistant Retrieval](#existing-assistant-retrieval)
@@ -69,43 +70,6 @@ which allows you to create a chat interface with a single assistant. The
 the assistant and receiving responses. It also supports OpenAI’s built-in
 tools, such as file input and function calling.
 
-## File Inputs
-
-The `ChatCompletions` class allows you to upload files and use them as context 
-for the assistant. Currently, the only supported file type is PDF files.
-
-One way to provide file inputs is to use the `message_files` parameter when
-initializing the `ChatCompletions` class. Below is an example of how to
-upload a PDF file and use it as context for the assistant:
-
-```python
-import streamlit as st
-import streamlit_openai
-
-if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.ChatCompletions(
-        message_files=["example.pdf"]
-    )
-
-st.session_state.chat.run()
-```
-
-Alternatively, you can use the `st.file_uploader` method to allow users to
-upload files dynamically. Below is an example of how to use the `st.file_uploader`
-method to upload a PDF file and use it as context for the assistant:
-
-```python
-import streamlit as st
-import streamlit_openai
-
-if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.ChatCompletions()
-    
-uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=True)
-
-st.session_state.chat.run(uploaded_files=uploaded_files)
-```
-
 ## Function Calling
 
 You can define and call custom functions within a chat using OpenAI’s function 
@@ -153,6 +117,43 @@ if "chat" not in st.session_state:
     )
 
 st.session_state.chat.run()
+```
+
+## File Inputs
+
+The `ChatCompletions` class allows you to upload files and use them as context 
+for the assistant. Currently, the only supported file type is PDF files.
+
+One way to provide file inputs is to use the `message_files` parameter when
+initializing the `ChatCompletions` class. Below is an example of how to
+upload a PDF file and use it as context for the assistant:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.ChatCompletions(
+        message_files=["example.pdf"]
+    )
+
+st.session_state.chat.run()
+```
+
+Alternatively, you can use the `st.file_uploader` method to allow users to
+upload files dynamically. Below is an example of how to use the `st.file_uploader`
+method to upload a PDF file and use it as context for the assistant:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.ChatCompletions()
+    
+uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=True)
+
+st.session_state.chat.run(uploaded_files=uploaded_files)
 ```
 
 # Assistants API
@@ -209,6 +210,50 @@ if "chat" not in st.session_state:
     )
 
 st.session_state.chat.run()
+```
+
+## File Inputs
+
+The `Assistants` class allows you to upload files and use them as context 
+for the assistant. When provding file inputs, you need to specify how the files
+will be used by setting `file_search` and `code_interpreter` parameters when 
+initializing the `Assistants` class.
+
+One way to provide file inputs is to use the `message_files` parameter when
+initializing the `Assistants` class. Below is an example of how to
+upload a PDF file and use it as context for the assistant:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Assistants(
+        file_search=True,
+        code_interpreter=True,
+        message_files=["example.pdf"],
+    )
+
+st.session_state.chat.run()
+```
+
+Alternatively, you can use the `st.file_uploader` method to allow users to
+upload files dynamically. Below is an example of how to use the `st.file_uploader`
+method to upload a PDF file and use it as context for the assistant:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Assistants(
+        file_search=True,
+        code_interpreter=True,
+    )
+    
+uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=True)
+
+st.session_state.chat.run(uploaded_files=uploaded_files)
 ```
 
 ## File Search
