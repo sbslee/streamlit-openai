@@ -30,7 +30,7 @@ class ChatCompletions():
         temperature (float): Sampling temperature for the model (default: 1.0).
         placeholder (str): Placeholder text for the chat input box (default: "Your message").
         welcome_message (str): Welcome message from the assistant.
-        message_files (list): List of files to be uploaded to the assistant during initialization.
+        message_files (list): List of files to be uploaded to the assistant during initialization. Currently, only PDF files are supported.
         client (openai.OpenAI): The OpenAI client instance for API calls.
         messages (list): The chat history in OpenAI's expected message format.
         containers (list): List to track the conversation history in structured form.
