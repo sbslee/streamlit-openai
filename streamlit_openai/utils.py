@@ -1,25 +1,47 @@
+import openai
 import streamlit as st
 import os, tempfile
 from pathlib import Path
 from typing import Optional, List, Union, Callable, Dict, Any
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
+MIME_TYPES = {
+    "txt" : "text/plain",
+    "csv" : "text/csv",
+    "tsv" : "text/tab-separated-values",
+    "html": "text/html",
+    "yaml": "text/yaml",
+    "md"  : "text/markdown",
+    "png" : "image/png",
+    "jpg" : "image/jpeg",
+    "jpeg": "image/jpeg",
+    "gif" : "image/gif",
+    "xml" : "application/xml",
+    "json": "application/json",
+    "pdf" : "application/pdf",
+    "zip" : "application/zip",
+    "tar" : "application/x-tar",
+    "gz"  : "application/gzip",
+}
+
 class Block():
     """
-    Represents a single unit of content in a chat interface, such as text, code, or an image.
+    Represents a single unit of content in a chat interface—such as text, 
+    code, an image, or a downloadable file.
 
-    A `Block` is used to structure and render different types of messages in the chat UI. 
-    It encapsulates the content and the category (type) of that content, and includes 
-    logic to render it appropriately in Streamlit.
+    A `Block` encapsulates and renders various types of messages within the 
+    chat UI. It associates the content with its category (e.g., text, code, 
+    image, or download) and includes the logic required for proper display and 
+    interaction.
 
     Attributes:
-        category (str): The type of content ('text', 'code', or 'image').
-        content (str or bytes): The actual content of the block, which may be a string or bytes (for images).
+        category (str): The type of content ('text', 'code', 'image', or 'download').
+        content (str, bytes, or openai.File): The actual content of the block. This can be a string for text or code, bytes for images, or an `openai.File` object for downloadable files.
     """
     def __init__(
             self,
             category: str,
-            content: Optional[Union[str, bytes]] = None
+            content: Optional[Union[str, bytes, openai.File]] = None,
     ) -> None:
         self.category = category
         self.content = content
@@ -30,13 +52,16 @@ class Block():
             self.content = content
 
     def __repr__(self) -> None:
-        if self.category == "text" or self.category == "code":
+        if self.category in ["text", "code"]:
             content = self.content
-            if len(content) > 50:
-                content = content[:30] + "..."
+            if len(content) > 30:
+                content = content[:30].strip() + "..."
+            content = repr(content)
         elif self.category == "image":
             content = "Bytes"
-        return f"Block('category={self.category}', content='{content}')"
+        elif self.category == "download":
+            content = f"File(filename='{os.path.basename(self.content.filename)}')"
+        return f"Block(category='{self.category}', content={content})"
 
     def iscategory(self, category) -> bool:
         """Checks if the block belongs to the specified category."""
@@ -50,6 +75,18 @@ class Block():
             st.code(self.content)
         elif self.category == "image":
             st.image(self.content)
+        elif self.category == "download":
+            filename = os.path.basename(self.content.filename)
+            _, file_extension = os.path.splitext(filename)
+            st.download_button(
+                label=filename,
+                data=st.session_state.chat.client.files.content(self.content.id).read(),
+                file_name=filename,
+                mime=MIME_TYPES[file_extension.lstrip(".")],
+                icon=":material/download:",
+                key=st.session_state.chat.download_button_key,
+            )
+            st.session_state.chat.download_button_key += 1
 
 class Container():
     """
@@ -91,7 +128,7 @@ class Container():
         """Updates the container with new content, appending or extending existing blocks."""
         if self.empty:
             self.blocks = [Block(category, content)]
-        elif self.last_block.iscategory(category):
+        elif category in ["text", "code"] and self.last_block.iscategory(category):
             self.last_block.content += content
         else:
             self.blocks.append(Block(category, content))
@@ -101,7 +138,7 @@ class Container():
         if self.empty:
             pass
         else:
-            with st.chat_message(self.role):
+            with st.chat_message(self.role, avatar=st.session_state.chat.user_avatar if self.role == "user" else st.session_state.chat.assistant_avatar):
                 for block in self.blocks:
                     block.write()
 
@@ -136,17 +173,36 @@ class TrackedFile():
         return f"TrackedFile(uploaded_file='{self.uploaded_file.name}', deleted={self.removed})"
 
     def to_openai(self) -> None:
-        with tempfile.TemporaryDirectory() as t:
-            file_path = os.path.join(t, self.uploaded_file.name)
-            with open(file_path, "wb") as f:
-                f.write(self.uploaded_file.getvalue())
-            self.openai_file = st.session_state.chat.client.files.create(file=Path(file_path), purpose="assistants")
-            st.session_state.chat.client.beta.threads.messages.create(
-                thread_id=st.session_state.chat.thread.id,
-                role="user",    
-                content=f"File uploaded: {self.uploaded_file.name}",
-                attachments=[{"file_id": self.openai_file.id, "tools": [{"type": "file_search"}]}]
-            )
+        if st.session_state.chat.__class__.__name__ == "ChatCompletions":
+            with tempfile.TemporaryDirectory() as t:
+                file_path = os.path.join(t, self.uploaded_file.name)
+                with open(file_path, "wb") as f:
+                    f.write(self.uploaded_file.getvalue())
+                self.openai_file = st.session_state.chat.client.files.create(file=Path(file_path), purpose="user_data")
+                st.session_state.chat.messages.append(
+                    {"role": "user",
+                     "content": [
+                         {"type": "file", "file": {"file_id": self.openai_file.id}},
+                         {"type": "text", "text": f"File uploaded: {os.path.basename(file_path)})"}
+                     ]}
+                )
+        else:
+            tools = []
+            if st.session_state.chat.file_search:
+                tools.append({"type": "file_search"})
+            if st.session_state.chat.code_interpreter:
+                tools.append({"type": "code_interpreter"})
+            with tempfile.TemporaryDirectory() as t:
+                file_path = os.path.join(t, self.uploaded_file.name)
+                with open(file_path, "wb") as f:
+                    f.write(self.uploaded_file.getvalue())
+                self.openai_file = st.session_state.chat.client.files.create(file=Path(file_path), purpose="assistants")
+                st.session_state.chat.client.beta.threads.messages.create(
+                    thread_id=st.session_state.chat.thread.id,
+                    role="user",    
+                    content=f"File uploaded: {self.uploaded_file.name}",
+                    attachments=[{"file_id": self.openai_file.id, "tools": tools}],
+                )
 
     def remove(self) -> None:
         response = st.session_state.chat.client.files.delete(self.openai_file.id)

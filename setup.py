@@ -10,7 +10,7 @@ setup(
     version=__version__,
     author='Seung-been "Steven" Lee',
     author_email="sbstevenlee@gmail.com",
-    description="Build AI chatbots with Streamlit and OpenAI's API",
+    description="Build AI chatbots with Streamlit and OpenAI",
     url="https://github.com/sbslee/streamlit-openai",
     packages=find_packages(),
     license="MIT",
