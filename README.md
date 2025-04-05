@@ -17,7 +17,12 @@ OpenAI’s built-in tools, such as function calling and file search.
   - [Code Interpreter](#code-interpreter)
   - [Existing Assistant Retrieval](#existing-assistant-retrieval)
 - [Customization](#customization)
+  - [Model Selection](#model-selection)
+  - [Temperature](#temperature)
+  - [Instructions](#instructions)
   - [Avatar Image](#avatar-image)
+  - [Welcome Message](#welcome-message)
+  - [Input Box Placeholder](#input-box-placeholder)
 
 # Installation
 
@@ -314,6 +319,58 @@ st.session_state.chat.run()
 
 # Customization
 
+## Model Selection
+The default model used by the assistant in the chat interface is `gpt-4o`. You
+can customize the model used by the assistant by providing the `model` parameter
+when initializing the `ChatCompletions` or `Assistants` class. Below is an
+example of how to customize the model in a chat interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.ChatCompletions(model="o3-mini")
+
+st.session_state.chat.run()
+```
+
+## Temperature
+You can customize the temperature used by the assistant in the chat interface
+by providing the `temperature` parameter when initializing the `ChatCompletions`
+or `Assistants` class. The temperature controls the randomness of the 
+assistantant's responses. Below is an example of how to customize the 
+temperature in a chat interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.ChatCompletions(temperature=0.5)
+
+st.session_state.chat.run()
+```
+
+## Instructions
+You can customize the instructions provided to the assistant in the chat
+interface by providing the `instructions` parameter when initializing the
+`ChatCompletions` or `Assistants` class. The instructions provide context
+for the assistant and can help guide its responses. Below is an example of
+how to customize the instructions in a chat interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.ChatCompletions(
+        instructions="You are a helpful assistant."
+    )
+
+st.session_state.chat.run()
+```
+
 ## Avatar Image
 You can customize the avatar images for the assistant and user in the chat interface
 by providing the `assistant_avatar` and `user_avatar` parameters when initializing
@@ -326,6 +383,42 @@ import streamlit_openai
 
 if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.ChatCompletions(assistant_avatar="🦖")
+
+st.session_state.chat.run()
+```
+
+## Welcome Message
+You can customize the welcome message displayed in the chat interface by
+providing the `welcome_message` parameter when initializing the `ChatCompletions`
+or `Assistants` class. Below is an example of how to customize the welcome
+message in a chat interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.ChatCompletions(
+        welcome_message="Hello! How can I assist you today?"
+    )
+
+st.session_state.chat.run()
+```
+
+## Input Box Placeholder
+You can customize the placeholder text for the input box in the chat interface
+by providing the `placeholder` parameter when initializing the `ChatCompletions`
+or `Assistants` class. Below is an example of how to customize the placeholder
+text in a chat interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.ChatCompletions(
+        placeholder="Type your message here..."
+    )
 
 st.session_state.chat.run()
 ```
