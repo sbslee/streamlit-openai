@@ -23,6 +23,9 @@ OpenAI’s built-in tools, such as function calling and file search.
   - [Avatar Image](#avatar-image)
   - [Welcome Message](#welcome-message)
   - [Input Box Placeholder](#input-box-placeholder)
+  - [Function Calling](#function-calling-2)
+    - [Image Generation Example](#image-generation-example)
+    - [Web Search Example](#web-search-example)
 
 # Installation
 
@@ -418,6 +421,103 @@ import streamlit_openai
 if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.ChatCompletions(
         placeholder="Type your message here..."
+    )
+
+st.session_state.chat.run()
+```
+
+## Function Calling
+You can define and call custom functions within a chat using OpenAI’s function
+calling capabilities. To create a custom function, define a `CustomFunction`
+class that takes two input arguments: `definition` (a dictionary describing
+the function) and `function` (the actual callable method).
+
+### Image Generation Example
+You can create a custom function that generates an image based on a given
+prompt. Below is an example of a custom function that generates an image
+based on a given prompt:
+
+```python
+import streamlit as st
+import openai
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    definition = {
+        "name": "generate_image",
+        "description": "Generate an image based on a given prompt.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "A description of the image to be generated.",
+                }
+            },
+            "required": ["prompt"]
+        }
+    }
+
+    def function(prompt):
+        client = openai.OpenAI()
+        response = client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1,
+        )
+        return response.data[0].url
+    
+    generate_image = streamlit_openai.utils.CustomFunction(definition, function)
+
+    st.session_state.chat = streamlit_openai.Assistants(
+        functions=[generate_image],
+    )
+
+st.session_state.chat.run()
+```
+
+### Web Search Example
+You can create a custom function that searches the web using a given query.
+Below is an example of a custom function that searches the web using a given
+query:
+
+```python
+import streamlit as st
+import openai
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    definition = {
+        "name": "search_web",
+        "description": "Searches the web using a query.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "Search query.",
+                }
+            },
+            "required": ["prompt"]
+        }
+    }
+
+    def function(prompt):
+        client = openai.OpenAI()
+        response = client.chat.completions.create(
+            model="gpt-4o-search-preview",
+            web_search_options={},
+            messages=[{"role": "user", "content": prompt}],
+        )
+
+        return response.choices[0].message.content
+    
+    search_web = streamlit_openai.utils.CustomFunction(definition, function)
+
+    st.session_state.chat = streamlit_openai.ChatCompletions(
+        functions=[search_web],
     )
 
 st.session_state.chat.run()
