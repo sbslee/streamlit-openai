@@ -1,7 +1,18 @@
-Welcome to the `streamlit-openai` package! This package provides a Streamlit 
-component for creating chat interfaces using OpenAI’s API. It supports both 
-the Chat Completions and Assistants APIs, and also includes integration with 
-OpenAI’s built-in tools, such as function calling and file search.
+Welcome to the `streamlit-openai` package!
+
+This package provides a Streamlit component for building interactive chat 
+interfaces powered by OpenAI's API. It supports both the Chat Completions and 
+Assistants APIs, with built-in integration for OpenAI tools such as function 
+calling, file search, and more.
+
+Below is a quick overview of the package's key features:
+
+- Easily create chat interfaces in Streamlit
+- Support for OpenAI’s Chat Completions and Assistants APIs
+- Real-time streaming responses
+- Integration with OpenAI tools: Function Calling, File Search, and Code Interpreter
+- File input support for richer interactions
+- Fully customizable chat interface, including model selection, temperature, and more
 
 # Table of Contents
 - [Installation](#installation)
