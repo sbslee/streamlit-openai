@@ -204,18 +204,6 @@ class ChatCompletions():
                 tracked_file.to_openai()
                 self.tracked_files.append(tracked_file)
 
-        # Handle file removals
-        for tracked_file in self.tracked_files:
-            if tracked_file.removed:
-                continue
-            else:
-                if uploaded_files is None:
-                    tracked_file.remove()
-                elif tracked_file.uploaded_file.file_id not in [x.file_id for x in uploaded_files]:
-                    tracked_file.remove()
-                else:
-                    continue
-
 class TrackedFile():
     """
     A class to represent a file that is tracked and managed within the OpenAI and Streamlit integration.
@@ -223,7 +211,6 @@ class TrackedFile():
     Attributes:
         uploaded_file (UploadedFile): The UploadedFile object created by Streamlit.
         openai_file (File): The File object created by OpenAI.
-        removed (bool): A flag indicating whether the file has been removed.
     """
     def __init__(
             self,
@@ -231,10 +218,9 @@ class TrackedFile():
     ) -> None:
         self.uploaded_file = uploaded_file
         self.openai_file = None
-        self.removed = False
 
     def __repr__(self) -> None:
-        return f"TrackedFile(uploaded_file='{self.uploaded_file.name}', deleted={self.removed})"
+        return f"TrackedFile(uploaded_file='{self.uploaded_file.name}')"
 
     def to_openai(self) -> None:
         with tempfile.TemporaryDirectory() as t:
@@ -249,14 +235,3 @@ class TrackedFile():
                         {"type": "text", "text": f"File uploaded: {os.path.basename(file_path)})"}
                     ]}
             )
-
-    def remove(self) -> None:
-        response = st.session_state.chat.client.files.delete(self.openai_file.id)
-        if not response.deleted:
-            raise ValueError("File could not be deleted from OpenAI: ", self.uploaded_file.name)
-        st.session_state.chat.client.beta.threads.messages.create(
-            thread_id=st.session_state.chat.thread.id,
-            role="user",
-            content=f"File removed: {self.uploaded_file.name}",
-        )
-        self.removed = True
