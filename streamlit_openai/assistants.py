@@ -1,12 +1,13 @@
 import streamlit as st
 import openai
-import os, json, re
+import os, json, re, tempfile
 from pathlib import Path
 from typing import Optional, List
-from .utils import Container, Block, TrackedFile, CustomFunction
+from .utils import Container, Block, CustomFunction
 from openai.types.beta import AssistantStreamEvent
 from openai.types.beta.threads import Text, TextDelta, ImageFile
 from openai.types.beta.threads.runs import ToolCall, ToolCallDelta
+from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 DEVELOPER_MESSAGE = """
 - Use GitHub-flavored Markdown in your response, including tables, images, URLs, code blocks, and lists.
@@ -253,3 +254,52 @@ class AssistantEventHandler(openai.AssistantEventHandler):
         if event.event == "thread.run.requires_action":
             run_id = event.data.id
             self.handle_requires_action(event.data, run_id)
+
+class TrackedFile():
+    """
+    A class to represent a file that is tracked and managed within the OpenAI and Streamlit integration.
+
+    Attributes:
+        uploaded_file (UploadedFile): The UploadedFile object created by Streamlit.
+        openai_file (File): The File object created by OpenAI.
+        removed (bool): A flag indicating whether the file has been removed.
+    """
+    def __init__(
+            self,
+            uploaded_file: UploadedFile
+    ) -> None:
+        self.uploaded_file = uploaded_file
+        self.openai_file = None
+        self.removed = False
+
+    def __repr__(self) -> None:
+        return f"TrackedFile(uploaded_file='{self.uploaded_file.name}', deleted={self.removed})"
+
+    def to_openai(self) -> None:
+        tools = []
+        if st.session_state.chat.file_search:
+            tools.append({"type": "file_search"})
+        if st.session_state.chat.code_interpreter:
+            tools.append({"type": "code_interpreter"})
+        with tempfile.TemporaryDirectory() as t:
+            file_path = os.path.join(t, self.uploaded_file.name)
+            with open(file_path, "wb") as f:
+                f.write(self.uploaded_file.getvalue())
+            self.openai_file = st.session_state.chat.client.files.create(file=Path(file_path), purpose="assistants")
+            st.session_state.chat.client.beta.threads.messages.create(
+                thread_id=st.session_state.chat.thread.id,
+                role="user",    
+                content=f"File uploaded: {self.uploaded_file.name}",
+                attachments=[{"file_id": self.openai_file.id, "tools": tools}],
+            )
+
+    def remove(self) -> None:
+        response = st.session_state.chat.client.files.delete(self.openai_file.id)
+        if not response.deleted:
+            raise ValueError("File could not be deleted from OpenAI: ", self.uploaded_file.name)
+        st.session_state.chat.client.beta.threads.messages.create(
+            thread_id=st.session_state.chat.thread.id,
+            role="user",
+            content=f"File removed: {self.uploaded_file.name}",
+        )
+        self.removed = True
