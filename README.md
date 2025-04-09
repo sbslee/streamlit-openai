@@ -1,3 +1,6 @@
+.. image:: https://badge.fury.io/py/streamlit-openai.svg
+    :target: https://badge.fury.io/py/streamlit-openai
+
 Welcome to the `streamlit-openai` package!
 
 This package provides a Streamlit component for building interactive chat 
