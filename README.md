@@ -1,5 +1,4 @@
-.. image:: https://badge.fury.io/py/streamlit-openai.svg
-    :target: https://badge.fury.io/py/streamlit-openai
+[![PyPI version](https://badge.fury.io/py/streamlit-openai.svg)](https://badge.fury.io/py/streamlit-openai)
 
 Welcome to the `streamlit-openai` package!
 
