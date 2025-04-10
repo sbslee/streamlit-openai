@@ -13,6 +13,7 @@ DEVELOPER_MESSAGE = """
 - Use GitHub-flavored Markdown in your response, including tables, images, URLs, code blocks, and lists.
 - Wrap all mathematical expressions and LaTeX terms in `$...$` for inline math and `$$...$$` for display math.
 - All hyperlinks to `sandbox:/mnt/data/*` files must be placed at the end of the message. When you output multiple sandbox hyperlinks, do not use bullets, numbers, or any kind of list formatting. Instead, separate each hyperlink with a blank line, like in a paragraph break.
+- When a custom function is called with a file path as its input, you must use the local file path.
 """
 
 FILE_SEARCH_EXTENSIONS = [
