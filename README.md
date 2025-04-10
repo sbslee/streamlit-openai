@@ -144,7 +144,11 @@ st.session_state.chat.run()
 ## File Inputs
 
 The `ChatCompletions` class allows you to upload files and use them as context 
-for the assistant. Currently, the only supported file type is PDF files.
+for the assistant. 
+
+Currently, the only natively supported file type is PDF. However, it is 
+possible to upload other file types by providing a custom function to handle 
+them.
 
 One way to provide file inputs is to use the `message_files` parameter when
 initializing the `ChatCompletions` class. Below is an example of how to
@@ -240,6 +244,10 @@ The `Assistants` class allows you to upload files and use them as context
 for the assistant. When provding file inputs, you need to specify how the files
 will be used by setting `file_search` and `code_interpreter` parameters when 
 initializing the `Assistants` class.
+
+Note that the `file_search` and `code_interpreter` features support different 
+file types. Additionally, you can upload file types not natively supported by 
+either feature by providing a custom function to handle them.
 
 One way to provide file inputs is to use the `message_files` parameter when
 initializing the `Assistants` class. Below is an example of how to
@@ -447,9 +455,8 @@ class that takes two input arguments: `definition` (a dictionary describing
 the function) and `function` (the actual callable method).
 
 ### Image Generation Example
-You can create a custom function that generates an image based on a given
-prompt. Below is an example of a custom function that generates an image
-based on a given prompt:
+You can create a custom function to generate an image from a given prompt. 
+Below is an example:
 
 ```python
 import streamlit as st
@@ -493,9 +500,8 @@ st.session_state.chat.run()
 ```
 
 ### Web Search Example
-You can create a custom function that searches the web using a given query.
-Below is an example of a custom function that searches the web using a given
-query:
+You can create a custom function to search the web using a given query. Below 
+is an example:
 
 ```python
 import streamlit as st
@@ -538,6 +544,9 @@ st.session_state.chat.run()
 ```
 
 ### Audio Transcription Example
+
+You can create a custom function to transcribe audio files. Below is an 
+example:
 
 ```python
 import streamlit as st
