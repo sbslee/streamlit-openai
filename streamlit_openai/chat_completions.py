@@ -82,14 +82,8 @@ class ChatCompletions():
         # If message files are provided, upload them to the assistant
         if self.message_files is not None:
             for message_file in self.message_files:
-                openai_file = self.client.files.create(file=Path(message_file), purpose="user_data")
-                self.messages.append(
-                    {"role": "user",
-                     "content": [
-                         {"type": "file", "file": {"file_id": openai_file.id}},
-                         {"type": "text", "text": f"File uploaded: {os.path.basename(message_file)})"}
-                     ]}
-                )
+                tracked_file = TrackedFile(self, message_file=message_file)
+                self.tracked_files.append(tracked_file)
 
     @property
     def last_container(self) -> Optional[Container]:
@@ -201,38 +195,57 @@ class ChatCompletions():
             for uploaded_file in uploaded_files:
                 if uploaded_file.file_id in [x.uploaded_file.file_id for x in self.tracked_files]:
                     continue
-                tracked_file = TrackedFile(uploaded_file)
-                tracked_file.to_openai()
+                tracked_file = TrackedFile(self, uploaded_file=uploaded_file)
                 self.tracked_files.append(tracked_file)
 
 class TrackedFile():
     """
-    A class to represent a file that is tracked and managed within the OpenAI and Streamlit integration.
+    A class to represent a file that is tracked and managed within the OpenAI 
+    and Streamlit integration.
 
     Attributes:
+        chat (ChatCompletions): The ChatCompletions instance that this file is associated with.
         uploaded_file (UploadedFile): The UploadedFile object created by Streamlit.
+        message_file (str): The file path of the message file.
         openai_file (File): The File object created by OpenAI.
+        file_path (Path): The path to the file on the local filesystem.
     """
     def __init__(
             self,
-            uploaded_file: UploadedFile
+            chat: ChatCompletions,
+            uploaded_file: Optional[UploadedFile] = None,
+            message_file: Optional[str] = None,
     ) -> None:
+        if (uploaded_file is None) == (message_file is None):
+            raise ValueError("Exactly one of 'uploaded_file' or 'message_file' must be provided.")
+        self.chat = chat
         self.uploaded_file = uploaded_file
+        self.message_file = message_file
         self.openai_file = None
 
-    def __repr__(self) -> None:
-        return f"TrackedFile(uploaded_file='{self.uploaded_file.name}')"
-
-    def to_openai(self) -> None:
-        with st.session_state.chat.temp_dir as t:
-            file_path = os.path.join(t, self.uploaded_file.name)
-            with open(file_path, "wb") as f:
+        if self.uploaded_file is not None:
+            self.file_path = Path(os.path.join(self.chat.temp_dir.name, self.uploaded_file.name))
+            with open(self.file_path, "wb") as f:
                 f.write(self.uploaded_file.getvalue())
-            self.openai_file = st.session_state.chat.client.files.create(file=Path(file_path), purpose="user_data")
-            st.session_state.chat.messages.append(
+        else:
+            self.file_path = Path(self.message_file).resolve()
+
+        self.chat.messages.append(
+            {"role": "user",
+                "content": [
+                    {"type": "text", "text": f"File locally available at: {self.file_path}"}
+                ]}
+        )
+
+        if self.file_path.name.endswith(".pdf"):
+            self.openai_file = self.chat.client.files.create(file=self.file_path, purpose="user_data")
+            self.chat.messages.append(
                 {"role": "user",
                     "content": [
                         {"type": "file", "file": {"file_id": self.openai_file.id}},
-                        {"type": "text", "text": f"File uploaded: {os.path.basename(file_path)})"}
+                        {"type": "text", "text": f"File uploaded to OpenAI: {self.file_path.name}"}
                     ]}
             )
+
+    def __repr__(self) -> None:
+        return f"TrackedFile(uploaded_file='{self.file_path.name}')"
