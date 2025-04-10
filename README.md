@@ -39,6 +39,7 @@ Below is a quick overview of the package's key features:
   - [Function Calling](#function-calling-2)
     - [Image Generation Example](#image-generation-example)
     - [Web Search Example](#web-search-example)
+    - [Audio Transcription Example](#audio-transcription-example)
 
 # Installation
 
@@ -534,4 +535,46 @@ if "chat" not in st.session_state:
     )
 
 st.session_state.chat.run()
+```
+
+### Audio Transcription Example
+
+```python
+import streamlit as st
+import openai
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    definition = {
+        "name": "transcribe_audio",
+        "description": "Convert speech to text.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "audio_file": {
+                    "type": "string",
+                    "description": "The audio file to transcribe.",
+                }
+            },
+            "required": ["audio_file"]
+        }
+    }
+
+    def function(audio_file):
+        client = openai.OpenAI()
+        response = client.audio.transcriptions.create(
+            model="gpt-4o-transcribe",
+            file=open(audio_file, "rb"),
+        )
+        return response.text
+    
+    transcribe_audio = streamlit_openai.utils.CustomFunction(definition, function)
+
+    st.session_state.chat = streamlit_openai.ChatCompletions(
+        functions=[transcribe_audio],
+    )
+
+uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=True)
+
+st.session_state.chat.run(uploaded_files=uploaded_files)
 ```
