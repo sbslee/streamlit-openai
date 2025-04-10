@@ -83,6 +83,7 @@ class Assistants():
         self.assistant = None
         self.thread = None
         self.download_button_key = 0
+        self.temp_dir = tempfile.TemporaryDirectory()
 
         if self.file_search or self.code_interpreter or self.functions is not None:
             self.tools = []
@@ -281,7 +282,7 @@ class TrackedFile():
             tools.append({"type": "file_search"})
         if st.session_state.chat.code_interpreter:
             tools.append({"type": "code_interpreter"})
-        with tempfile.TemporaryDirectory() as t:
+        with st.session_state.chat.temp_dir as t:
             file_path = os.path.join(t, self.uploaded_file.name)
             with open(file_path, "wb") as f:
                 f.write(self.uploaded_file.getvalue())
