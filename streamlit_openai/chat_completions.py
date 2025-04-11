@@ -1,9 +1,10 @@
 import streamlit as st
 import openai
-import os, json
+import os, json, tempfile
 from pathlib import Path
 from typing import Optional, List
-from .utils import Container, Block, CustomFunction, TrackedFile
+from .utils import Container, Block, CustomFunction
+from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 DEVELOPER_MESSAGE = """
 - Use GitHub-flavored Markdown in your response, including tables, images, URLs, code blocks, and lists.
@@ -63,6 +64,7 @@ class ChatCompletions():
         self.messages = [{"role": "developer", "content": DEVELOPER_MESSAGE+self.instructions}]
         self.containers = []
         self.tracked_files = []
+        self.temp_dir = tempfile.TemporaryDirectory()
         
         if self.functions is not None:
             self.tools = []
@@ -80,14 +82,8 @@ class ChatCompletions():
         # If message files are provided, upload them to the assistant
         if self.message_files is not None:
             for message_file in self.message_files:
-                openai_file = self.client.files.create(file=Path(message_file), purpose="user_data")
-                self.messages.append(
-                    {"role": "user",
-                     "content": [
-                         {"type": "file", "file": {"file_id": openai_file.id}},
-                         {"type": "text", "text": f"File uploaded: {os.path.basename(message_file)})"}
-                     ]}
-                )
+                tracked_file = TrackedFile(self, message_file=message_file)
+                self.tracked_files.append(tracked_file)
 
     @property
     def last_container(self) -> Optional[Container]:
@@ -199,18 +195,57 @@ class ChatCompletions():
             for uploaded_file in uploaded_files:
                 if uploaded_file.file_id in [x.uploaded_file.file_id for x in self.tracked_files]:
                     continue
-                tracked_file = TrackedFile(uploaded_file)
-                tracked_file.to_openai()
+                tracked_file = TrackedFile(self, uploaded_file=uploaded_file)
                 self.tracked_files.append(tracked_file)
 
-        # Handle file removals
-        for tracked_file in self.tracked_files:
-            if tracked_file.removed:
-                continue
-            else:
-                if uploaded_files is None:
-                    tracked_file.remove()
-                elif tracked_file.uploaded_file.file_id not in [x.file_id for x in uploaded_files]:
-                    tracked_file.remove()
-                else:
-                    continue
+class TrackedFile():
+    """
+    A class to represent a file that is tracked and managed within the OpenAI 
+    and Streamlit integration.
+
+    Attributes:
+        chat (ChatCompletions): The ChatCompletions instance that this file is associated with.
+        uploaded_file (UploadedFile): The UploadedFile object created by Streamlit.
+        message_file (str): The file path of the message file.
+        openai_file (File): The File object created by OpenAI.
+        file_path (Path): The path to the file on the local filesystem.
+    """
+    def __init__(
+            self,
+            chat: ChatCompletions,
+            uploaded_file: Optional[UploadedFile] = None,
+            message_file: Optional[str] = None,
+    ) -> None:
+        if (uploaded_file is None) == (message_file is None):
+            raise ValueError("Exactly one of 'uploaded_file' or 'message_file' must be provided.")
+        self.chat = chat
+        self.uploaded_file = uploaded_file
+        self.message_file = message_file
+        self.openai_file = None
+
+        if self.uploaded_file is not None:
+            self.file_path = Path(os.path.join(self.chat.temp_dir.name, self.uploaded_file.name))
+            with open(self.file_path, "wb") as f:
+                f.write(self.uploaded_file.getvalue())
+        else:
+            self.file_path = Path(self.message_file).resolve()
+
+        self.chat.messages.append(
+            {"role": "user",
+                "content": [
+                    {"type": "text", "text": f"File locally available at: {self.file_path}"}
+                ]}
+        )
+
+        if self.file_path.name.endswith(".pdf"):
+            self.openai_file = self.chat.client.files.create(file=self.file_path, purpose="user_data")
+            self.chat.messages.append(
+                {"role": "user",
+                    "content": [
+                        {"type": "file", "file": {"file_id": self.openai_file.id}},
+                        {"type": "text", "text": f"File uploaded to OpenAI: {self.file_path.name}"}
+                    ]}
+            )
+
+    def __repr__(self) -> None:
+        return f"TrackedFile(uploaded_file='{self.file_path.name}')"

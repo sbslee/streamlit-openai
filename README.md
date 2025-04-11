@@ -1,7 +1,20 @@
-Welcome to the `streamlit-openai` package! This package provides a Streamlit 
-component for creating chat interfaces using OpenAI’s API. It supports both 
-the Chat Completions and Assistants APIs, and also includes integration with 
-OpenAI’s built-in tools, such as function calling and file search.
+[![PyPI version](https://badge.fury.io/py/streamlit-openai.svg)](https://badge.fury.io/py/streamlit-openai)
+
+Welcome to the `streamlit-openai` package!
+
+This package provides a Streamlit component for building interactive chat 
+interfaces powered by OpenAI's API. It supports both the Chat Completions and 
+Assistants APIs, with built-in integration for OpenAI tools such as function 
+calling, file search, and more.
+
+Below is a quick overview of the package's key features:
+
+- Easily create chat interfaces in Streamlit
+- Support for OpenAI’s Chat Completions and Assistants APIs
+- Real-time streaming responses
+- Integration with OpenAI tools: Function Calling, File Search, and Code Interpreter
+- File input support for richer interactions
+- Fully customizable chat interface, including model selection, temperature, and more
 
 # Table of Contents
 - [Installation](#installation)
@@ -23,6 +36,10 @@ OpenAI’s built-in tools, such as function calling and file search.
   - [Avatar Image](#avatar-image)
   - [Welcome Message](#welcome-message)
   - [Input Box Placeholder](#input-box-placeholder)
+  - [Function Calling](#function-calling-2)
+    - [Image Generation Example](#image-generation-example)
+    - [Web Search Example](#web-search-example)
+    - [Audio Transcription Example](#audio-transcription-example)
 
 # Installation
 
@@ -127,7 +144,11 @@ st.session_state.chat.run()
 ## File Inputs
 
 The `ChatCompletions` class allows you to upload files and use them as context 
-for the assistant. Currently, the only supported file type is PDF files.
+for the assistant. 
+
+Currently, the only natively supported file type is PDF. However, it is 
+possible to upload other file types by providing a custom function to handle 
+them.
 
 One way to provide file inputs is to use the `message_files` parameter when
 initializing the `ChatCompletions` class. Below is an example of how to
@@ -223,6 +244,10 @@ The `Assistants` class allows you to upload files and use them as context
 for the assistant. When provding file inputs, you need to specify how the files
 will be used by setting `file_search` and `code_interpreter` parameters when 
 initializing the `Assistants` class.
+
+Note that the `file_search` and `code_interpreter` features support different 
+file types. Additionally, you can upload file types not natively supported by 
+either feature by providing a custom function to handle them.
 
 One way to provide file inputs is to use the `message_files` parameter when
 initializing the `Assistants` class. Below is an example of how to
@@ -421,4 +446,144 @@ if "chat" not in st.session_state:
     )
 
 st.session_state.chat.run()
+```
+
+## Function Calling
+You can define and call custom functions within a chat using OpenAI’s function
+calling capabilities. To create a custom function, define a `CustomFunction`
+class that takes two input arguments: `definition` (a dictionary describing
+the function) and `function` (the actual callable method).
+
+### Image Generation Example
+You can create a custom function to generate an image from a given prompt. 
+Below is an example:
+
+```python
+import streamlit as st
+import openai
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    definition = {
+        "name": "generate_image",
+        "description": "Generate an image based on a given prompt.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "A description of the image to be generated.",
+                }
+            },
+            "required": ["prompt"]
+        }
+    }
+
+    def function(prompt):
+        client = openai.OpenAI()
+        response = client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1,
+        )
+        return response.data[0].url
+    
+    generate_image = streamlit_openai.utils.CustomFunction(definition, function)
+
+    st.session_state.chat = streamlit_openai.Assistants(
+        functions=[generate_image],
+    )
+
+st.session_state.chat.run()
+```
+
+### Web Search Example
+You can create a custom function to search the web using a given query. Below 
+is an example:
+
+```python
+import streamlit as st
+import openai
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    definition = {
+        "name": "search_web",
+        "description": "Searches the web using a query.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "Search query.",
+                }
+            },
+            "required": ["prompt"]
+        }
+    }
+
+    def function(prompt):
+        client = openai.OpenAI()
+        response = client.chat.completions.create(
+            model="gpt-4o-search-preview",
+            web_search_options={},
+            messages=[{"role": "user", "content": prompt}],
+        )
+
+        return response.choices[0].message.content
+    
+    search_web = streamlit_openai.utils.CustomFunction(definition, function)
+
+    st.session_state.chat = streamlit_openai.ChatCompletions(
+        functions=[search_web],
+    )
+
+st.session_state.chat.run()
+```
+
+### Audio Transcription Example
+
+You can create a custom function to transcribe audio files. Below is an 
+example:
+
+```python
+import streamlit as st
+import openai
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    definition = {
+        "name": "transcribe_audio",
+        "description": "Convert speech to text.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "audio_file": {
+                    "type": "string",
+                    "description": "The audio file to transcribe.",
+                }
+            },
+            "required": ["audio_file"]
+        }
+    }
+
+    def function(audio_file):
+        client = openai.OpenAI()
+        response = client.audio.transcriptions.create(
+            model="gpt-4o-transcribe",
+            file=open(audio_file, "rb"),
+        )
+        return response.text
+    
+    transcribe_audio = streamlit_openai.utils.CustomFunction(definition, function)
+
+    st.session_state.chat = streamlit_openai.ChatCompletions(
+        functions=[transcribe_audio],
+    )
+
+uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=True)
+
+st.session_state.chat.run(uploaded_files=uploaded_files)
 ```

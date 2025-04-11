@@ -1,9 +1,7 @@
 import openai
 import streamlit as st
-import os, tempfile
-from pathlib import Path
+import os
 from typing import Optional, List, Union, Callable, Dict, Any
-from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 MIME_TYPES = {
     "txt" : "text/plain",
@@ -151,69 +149,6 @@ class Container():
         """Renders the container content using Streamlit's delta generator."""
         with self.delta_generator:
             self.write()
-
-class TrackedFile():
-    """
-    A class to represent a file that is tracked and managed within the OpenAI and Streamlit integration.
-
-    Attributes:
-        uploaded_file (UploadedFile): The UploadedFile object created by Streamlit.
-        openai_file (File): The File object created by OpenAI.
-        removed (bool): A flag indicating whether the file has been removed.
-    """
-    def __init__(
-            self,
-            uploaded_file: UploadedFile
-    ) -> None:
-        self.uploaded_file = uploaded_file
-        self.openai_file = None
-        self.removed = False
-
-    def __repr__(self) -> None:
-        return f"TrackedFile(uploaded_file='{self.uploaded_file.name}', deleted={self.removed})"
-
-    def to_openai(self) -> None:
-        if st.session_state.chat.__class__.__name__ == "ChatCompletions":
-            with tempfile.TemporaryDirectory() as t:
-                file_path = os.path.join(t, self.uploaded_file.name)
-                with open(file_path, "wb") as f:
-                    f.write(self.uploaded_file.getvalue())
-                self.openai_file = st.session_state.chat.client.files.create(file=Path(file_path), purpose="user_data")
-                st.session_state.chat.messages.append(
-                    {"role": "user",
-                     "content": [
-                         {"type": "file", "file": {"file_id": self.openai_file.id}},
-                         {"type": "text", "text": f"File uploaded: {os.path.basename(file_path)})"}
-                     ]}
-                )
-        else:
-            tools = []
-            if st.session_state.chat.file_search:
-                tools.append({"type": "file_search"})
-            if st.session_state.chat.code_interpreter:
-                tools.append({"type": "code_interpreter"})
-            with tempfile.TemporaryDirectory() as t:
-                file_path = os.path.join(t, self.uploaded_file.name)
-                with open(file_path, "wb") as f:
-                    f.write(self.uploaded_file.getvalue())
-                self.openai_file = st.session_state.chat.client.files.create(file=Path(file_path), purpose="assistants")
-                st.session_state.chat.client.beta.threads.messages.create(
-                    thread_id=st.session_state.chat.thread.id,
-                    role="user",    
-                    content=f"File uploaded: {self.uploaded_file.name}",
-                    attachments=[{"file_id": self.openai_file.id, "tools": tools}],
-                )
-
-    def remove(self) -> None:
-        response = st.session_state.chat.client.files.delete(self.openai_file.id)
-        if not response.deleted:
-            raise ValueError("File could not be deleted from OpenAI: ", self.uploaded_file.name)
-        st.session_state.chat.client.beta.threads.messages.create(
-            thread_id=st.session_state.chat.thread.id,
-            role="user",
-            content=f"File removed: {self.uploaded_file.name}",
-        )
-        self.removed = True
 
 class CustomFunction():
     """

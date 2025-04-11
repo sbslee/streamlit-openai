@@ -1,18 +1,34 @@
 import streamlit as st
 import openai
-import os, json, re
+import os, json, re, tempfile
 from pathlib import Path
 from typing import Optional, List
-from .utils import Container, Block, TrackedFile, CustomFunction
+from .utils import Container, Block, CustomFunction
 from openai.types.beta import AssistantStreamEvent
 from openai.types.beta.threads import Text, TextDelta, ImageFile
 from openai.types.beta.threads.runs import ToolCall, ToolCallDelta
+from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 DEVELOPER_MESSAGE = """
 - Use GitHub-flavored Markdown in your response, including tables, images, URLs, code blocks, and lists.
 - Wrap all mathematical expressions and LaTeX terms in `$...$` for inline math and `$$...$$` for display math.
 - All hyperlinks to `sandbox:/mnt/data/*` files must be placed at the end of the message. When you output multiple sandbox hyperlinks, do not use bullets, numbers, or any kind of list formatting. Instead, separate each hyperlink with a blank line, like in a paragraph break.
+- When a custom function is called with a file path as its input, you must use the local file path.
 """
+
+FILE_SEARCH_EXTENSIONS = [
+    ".c", ".cpp", ".cs", ".css", ".doc", ".docx", ".go", 
+    ".html", ".java", ".js", ".json", ".md", ".pdf", ".php", 
+    ".pptx", ".py", ".rb", ".sh", ".tex", ".ts", ".txt"
+]
+
+CODE_INTERPRETER_EXTENSIONS = [
+    ".c", ".cs", ".cpp", ".csv", ".doc", ".docx", ".html", 
+    ".java", ".json", ".md", ".pdf", ".php", ".pptx", ".py", 
+    ".rb", ".tex", ".txt", ".css", ".js", ".sh", ".ts", ".csv", 
+    ".jpeg", ".jpg", ".gif", ".pkl", ".png", ".tar", ".xlsx", 
+    ".xml", ".zip"
+]
 
 class Assistants():
     """
@@ -82,6 +98,7 @@ class Assistants():
         self.assistant = None
         self.thread = None
         self.download_button_key = 0
+        self.temp_dir = tempfile.TemporaryDirectory()
 
         if self.file_search or self.code_interpreter or self.functions is not None:
             self.tools = []
@@ -121,13 +138,8 @@ class Assistants():
         # If message files are provided, upload them to the assistant
         if self.message_files is not None:
             for message_file in self.message_files:
-                openai_file = self.client.files.create(file=Path(message_file), purpose="assistants")
-                self.client.beta.threads.messages.create(
-                    thread_id=self.thread.id,
-                    role="user",    
-                    content=f"File uploaded: {os.path.basename(message_file)})",
-                    attachments=[{"file_id": openai_file.id, "tools": self.tools}],
-                )
+                tracked_file = TrackedFile(self, message_file=message_file)
+                self.tracked_files.append(tracked_file)
 
     @property
     def last_container(self) -> Optional[Container]:
@@ -171,8 +183,7 @@ class Assistants():
             for uploaded_file in uploaded_files:
                 if uploaded_file.file_id in [x.uploaded_file.file_id for x in self.tracked_files]:
                     continue
-                tracked_file = TrackedFile(uploaded_file)
-                tracked_file.to_openai()
+                tracked_file = TrackedFile(self, uploaded_file=uploaded_file)
                 self.tracked_files.append(tracked_file)
 
         # Handle file removals
@@ -253,3 +264,79 @@ class AssistantEventHandler(openai.AssistantEventHandler):
         if event.event == "thread.run.requires_action":
             run_id = event.data.id
             self.handle_requires_action(event.data, run_id)
+
+class TrackedFile():
+    """
+    A class to represent a file that is tracked and managed within the OpenAI and Streamlit integration.
+
+    Attributes:
+        chat (ChatCompletions): The ChatCompletions instance that this file is associated with.
+        uploaded_file (UploadedFile): The UploadedFile object created by Streamlit.
+        message_file (str): The file path of the message file.
+        openai_file (File): The File object created by OpenAI.
+        removed (bool): A flag indicating whether the file has been removed.
+        file_path (Path): The path to the file on the local filesystem.
+    """
+    def __init__(
+            self,
+            chat: Assistants,
+            uploaded_file: Optional[UploadedFile] = None,
+            message_file: Optional[str] = None,
+    ) -> None:
+        if (uploaded_file is None) == (message_file is None):
+            raise ValueError("Exactly one of 'uploaded_file' or 'message_file' must be provided.")
+        self.chat = chat
+        self.uploaded_file = uploaded_file
+        self.message_file = message_file
+        self.openai_file = None
+        self.removed = False
+
+        if self.uploaded_file is not None:
+            self.file_path = Path(os.path.join(self.chat.temp_dir.name, self.uploaded_file.name))
+            with open(self.file_path, "wb") as f:
+                f.write(self.uploaded_file.getvalue())
+        else:
+            self.file_path = Path(self.message_file).resolve()
+
+        self.chat.client.beta.threads.messages.create(
+            thread_id=self.chat.thread.id,
+            role="user",    
+            content=f"File locally available at: {self.file_path}",
+        )
+        
+        if self.chat.tools is None:
+            raise ValueError("No tools available for the file: ", self.file_path.name)
+
+        file_tools = []
+        for tool in self.chat.tools:
+            if tool["type"] == "function":
+                file_tools.append(tool)
+        upload_to_openai = False
+        if self.chat.file_search and self.file_path.suffix in FILE_SEARCH_EXTENSIONS:
+            file_tools.append({"type": "file_search"})
+            upload_to_openai = True
+        if self.chat.code_interpreter and self.file_path.suffix in CODE_INTERPRETER_EXTENSIONS:
+            file_tools.append({"type": "code_interpreter"})
+            upload_to_openai = True
+        if upload_to_openai:
+            self.openai_file = self.chat.client.files.create(file=self.file_path, purpose="assistants")
+            self.chat.client.beta.threads.messages.create(
+                thread_id=self.chat.thread.id,
+                role="user",    
+                content=f"File uploaded to OpenAI: {self.file_path.name}",
+                attachments=[{"file_id": self.openai_file.id, "tools": self.chat.tools}],
+            )
+
+    def __repr__(self) -> None:
+        return f"TrackedFile(uploaded_file='{self.uploaded_file.name}', deleted={self.removed})"
+
+    def remove(self) -> None:
+        response = self.chat.client.files.delete(self.openai_file.id)
+        if not response.deleted:
+            raise ValueError("File could not be deleted from OpenAI: ", self.uploaded_file.name)
+        self.chat.client.beta.threads.messages.create(
+            thread_id=self.chat.thread.id,
+            role="user",
+            content=f"File removed: {self.uploaded_file.name}",
+        )
+        self.removed = True
