@@ -308,9 +308,6 @@ class TrackedFile():
             raise ValueError("No tools available for the file: ", self.file_path.name)
 
         file_tools = []
-        for tool in self.chat.tools:
-            if tool["type"] == "function":
-                file_tools.append(tool)
         upload_to_openai = False
         if self.chat.file_search and self.file_path.suffix in FILE_SEARCH_EXTENSIONS:
             file_tools.append({"type": "file_search"})
@@ -324,7 +321,7 @@ class TrackedFile():
                 thread_id=self.chat.thread.id,
                 role="user",    
                 content=f"File uploaded to OpenAI: {self.file_path.name}",
-                attachments=[{"file_id": self.openai_file.id, "tools": self.chat.tools}],
+                attachments=[{"file_id": self.openai_file.id, "tools": file_tools}],
             )
 
     def __repr__(self) -> None:
