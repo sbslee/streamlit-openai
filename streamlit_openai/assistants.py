@@ -132,7 +132,7 @@ class Assistants():
                 content=self.welcome_message,
             )
             self.containers.append(
-                Container("assistant", blocks=[Block("text", self.welcome_message)])
+                Container(self, "assistant", blocks=[Block(self, "text", self.welcome_message)])
             )
 
         # If message files are provided, upload them to the assistant
@@ -155,13 +155,13 @@ class Assistants():
             with st.chat_message("user"):
                 st.markdown(prompt)
             self.containers.append(
-                Container("user", blocks=[Block("text", prompt)])
+                Container(self, "user", blocks=[Block(self, "text", prompt)])
             )
             self.respond(prompt)
 
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
-        self.containers.append(Container("assistant"))
+        self.containers.append(Container(self, "assistant"))
         self.client.beta.threads.messages.create(
             thread_id=self.thread.id,
             role="user",

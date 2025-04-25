@@ -33,14 +33,17 @@ class Block():
     interaction.
 
     Attributes:
+        chat (ChatCompletions or Assistants): The parent chat object managing the chat interface.
         category (str): The type of content ('text', 'code', 'image', or 'download').
         content (str, bytes, or openai.File): The actual content of the block. This can be a string for text or code, bytes for images, or an `openai.File` object for downloadable files.
     """
     def __init__(
             self,
+            chat: Union["ChatCompletions", "Assistants"],
             category: str,
             content: Optional[Union[str, bytes, openai.File]] = None,
     ) -> None:
+        self.chat = chat
         self.category = category
         self.content = content
 
@@ -78,13 +81,13 @@ class Block():
             _, file_extension = os.path.splitext(filename)
             st.download_button(
                 label=filename,
-                data=st.session_state.chat.client.files.content(self.content.id).read(),
+                data=self.chat.client.files.content(self.content.id).read(),
                 file_name=filename,
                 mime=MIME_TYPES[file_extension.lstrip(".")],
                 icon=":material/download:",
-                key=st.session_state.chat.download_button_key,
+                key=self.chat.download_button_key,
             )
-            st.session_state.chat.download_button_key += 1
+            self.chat.download_button_key += 1
 
 class Container():
     """
@@ -96,19 +99,22 @@ class Container():
     rendering, and streaming content to the UI.
 
     Attributes:
-        delta_generator: A Streamlit placeholder used for dynamic content updates.
+        chat (ChatCompletions or Assistants): The parent chat object managing the chat interface.
         role (str): The role associated with this message (e.g., "user" or "assistant").
         blocks (list): A list of Block instances representing message segments.
+        delta_generator (DeltaGenerator): A Streamlit placeholder used for dynamic content updates.
     """
     def __init__(
             self,
+            chat: Union["ChatCompletions", "Assistants"],
             role: str,
             blocks: Optional[List[Block]] = None,
     ) -> None:
-        self.delta_generator = st.empty()
+        self.chat = chat
         self.role = role
         self.blocks = blocks
-
+        self.delta_generator = st.empty()
+        
     def __repr__(self) -> None:
         return f"Container(role='{self.role}', blocks={self.blocks})"
 
@@ -125,18 +131,18 @@ class Container():
     def update(self, category, content) -> None:
         """Updates the container with new content, appending or extending existing blocks."""
         if self.empty:
-            self.blocks = [Block(category, content)]
+            self.blocks = [Block(self.chat, category, content)]
         elif category in ["text", "code"] and self.last_block.iscategory(category):
             self.last_block.content += content
         else:
-            self.blocks.append(Block(category, content))
+            self.blocks.append(Block(self.chat, category, content))
 
     def write(self) -> None:
         """Renders the container's content in the Streamlit chat interface."""
         if self.empty:
             pass
         else:
-            with st.chat_message(self.role, avatar=st.session_state.chat.user_avatar if self.role == "user" else st.session_state.chat.assistant_avatar):
+            with st.chat_message(self.role, avatar=self.chat.user_avatar if self.role == "user" else self.chat.assistant_avatar):
                 for block in self.blocks:
                     block.write()
 
