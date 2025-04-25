@@ -223,7 +223,7 @@ class AssistantEventHandler(openai.AssistantEventHandler):
         if delta.annotations is not None:
             for annotation in delta.annotations:
                 if annotation.type == "file_path":
-                    self.last_container.update_and_stream(
+                    self.chat.last_container.update_and_stream(
                         "download",
                         self.chat.client.files.retrieve(annotation.file_path.file_id)
                     )
