@@ -169,7 +169,7 @@ class Assistants():
         )
         with self.client.beta.threads.runs.stream(
             thread_id=self.thread.id,
-            event_handler=AssistantEventHandler(),
+            event_handler=AssistantEventHandler(self),
             assistant_id=self.assistant.id,
         ) as stream:
             stream.until_done()
@@ -207,10 +207,16 @@ class AssistantEventHandler(openai.AssistantEventHandler):
     tool calls, code execution, image uploads, and function call completions. 
     It updates the corresponding UI container in Streamlit's session state 
     accordingly.
+
+    Attributes:
+        chat (Assistants): The Assistants instance that this event handler is associated with.
     """
-    def __init__(self) -> None:
+    def __init__(
+            self,
+            chat: Assistants,
+    ) -> None:
         super().__init__()
-        self.last_container = st.session_state.chat.last_container
+        self.chat = chat
 
     def on_text_delta(self, delta: TextDelta, snapshot: Text) -> None:
         """Handles streaming text output by updating the last container, stripping out annotations."""
@@ -219,34 +225,34 @@ class AssistantEventHandler(openai.AssistantEventHandler):
                 if annotation.type == "file_path":
                     self.last_container.update_and_stream(
                         "download",
-                        st.session_state.chat.client.files.retrieve(annotation.file_path.file_id)
+                        self.chat.client.files.retrieve(annotation.file_path.file_id)
                     )
         if delta.value is not None:
-            self.last_container.update_and_stream("text", delta.value)
-            self.last_container.last_block.content = re.sub(r"【.*?】", "", self.last_container.last_block.content)
-            self.last_container.last_block.content = re.sub(r"\[.*?\]\(sandbox:/mnt/data/.*?\)", "", self.last_container.last_block.content)
+            self.chat.last_container.update_and_stream("text", delta.value)
+            self.chat.last_container.last_block.content = re.sub(r"【.*?】", "", self.chat.last_container.last_block.content)
+            self.chat.last_container.last_block.content = re.sub(r"\[.*?\]\(sandbox:/mnt/data/.*?\)", "", self.chat.last_container.last_block.content)
 
     def on_tool_call_delta(self, delta: ToolCallDelta, snapshot: ToolCall) -> None:
         """Handles streaming tool call output, including function names and code interpreter input."""
         if delta.type == "function":
-            self.last_container.stream()
+            self.chat.last_container.stream()
         elif delta.type == "code_interpreter":
             if delta.code_interpreter.input:
-                self.last_container.update_and_stream("code", delta.code_interpreter.input)
+                self.chat.last_container.update_and_stream("code", delta.code_interpreter.input)
 
     def on_image_file_done(self, image_file: ImageFile) -> None:
         """Handles image file completion and streams the image to the chat container."""
-        image_data = st.session_state.chat.client.files.content(image_file.file_id)
+        image_data = self.chat.client.files.content(image_file.file_id)
         image_data_bytes = image_data.read()
-        self.last_container.update_and_stream("image", image_data_bytes)
+        self.chat.last_container.update_and_stream("image", image_data_bytes)
 
     def submit_tool_outputs(self, tool_outputs, run_id) -> None:
         """Submits outputs of tool calls back to the assistant and streams the result."""
-        with st.session_state.chat.client.beta.threads.runs.submit_tool_outputs_stream(
+        with self.chat.client.beta.threads.runs.submit_tool_outputs_stream(
             thread_id=self.current_run.thread_id,
             run_id=self.current_run.id,
             tool_outputs=tool_outputs,
-            event_handler=AssistantEventHandler(),
+            event_handler=AssistantEventHandler(self.chat),
         ) as stream:
             stream.until_done()
 
@@ -254,7 +260,7 @@ class AssistantEventHandler(openai.AssistantEventHandler):
         """Resolves required function calls by executing them and preparing the tool outputs."""
         tool_outputs = []
         for tool_call in data.required_action.submit_tool_outputs.tool_calls:
-            function = [x for x in st.session_state.chat.functions if x.definition["name"] == tool_call.function.name][0]
+            function = [x for x in self.chat.functions if x.definition["name"] == tool_call.function.name][0]
             result = function.function(**json.loads(tool_call.function.arguments))
             tool_outputs.append({"tool_call_id": tool_call.id, "output": result})
         self.submit_tool_outputs(tool_outputs, run_id)
@@ -270,7 +276,7 @@ class TrackedFile():
     A class to represent a file that is tracked and managed within the OpenAI and Streamlit integration.
 
     Attributes:
-        chat (ChatCompletions): The ChatCompletions instance that this file is associated with.
+        chat (Assistants): The Assistants instance that this file is associated with.
         uploaded_file (UploadedFile): The UploadedFile object created by Streamlit.
         message_file (str): The file path of the message file.
         openai_file (File): The File object created by OpenAI.
