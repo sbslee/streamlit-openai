@@ -36,6 +36,7 @@ Below is a quick overview of the package's key features:
   - [Avatar Image](#avatar-image)
   - [Welcome Message](#welcome-message)
   - [Example Messages](#example-messages)
+  - [Info Message](#info-message)
   - [Input Box Placeholder](#input-box-placeholder)
   - [Function Calling](#function-calling-2)
     - [Image Generation Example](#image-generation-example)
@@ -449,6 +450,24 @@ if "chat" not in st.session_state:
             "How do you make a paper airplane?",
             "What is the weather like today?",
         ],
+    )
+
+st.session_state.chat.run()
+```
+
+## Info Message
+The `info_message` parameter allows you to display an informational message 
+within the chat interface, helping users grasp key details about how to 
+interact effectively with the assistant. Here's an example of how to include 
+such a message in the chat interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.ChatCompletions(
+        info_message="This is an informative and helpful message.",
     )
 
 st.session_state.chat.run()
