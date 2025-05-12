@@ -55,11 +55,13 @@ class Assistants():
         placeholder (str): Placeholder text for the chat input box (default: "Your message").
         welcome_message (str): Welcome message from the assistant.
         message_files (list): List of files to be uploaded to the assistant during initialization.
+        example_messages (list): A list of example messages for the user to choose from.
         containers (list): List to track the conversation history in structured form.
         tools (list): Tools (custom functions, file search, code interpreter) enabled for the assistant.
         tracked_files (list): List of files being tracked for uploads/removals.
         assistant (Assistant): The instantiated or retrieved OpenAI assistant.
         thread (Thread): The conversation thread associated with the assistant.
+        selected_example_message (str): The selected example message from the list of example messages.
     """
     def __init__(
             self,
@@ -77,6 +79,7 @@ class Assistants():
             placeholder: Optional[str] = "Your message",
             welcome_message: Optional[str] = None,
             message_files: Optional[List[str]] = None,
+            example_messages: Optional[List[dict]] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.client = openai.OpenAI(api_key=self.api_key)
@@ -93,12 +96,14 @@ class Assistants():
         self.placeholder = placeholder
         self.welcome_message = welcome_message
         self.message_files = message_files
+        self.example_messages = example_messages
         self.assistant_avatar = assistant_avatar
         self.assistant_id = assistant_id
         self.assistant = None
         self.thread = None
         self.download_button_key = 0
         self.temp_dir = tempfile.TemporaryDirectory()
+        self.selected_example_message = None
 
         if self.file_search or self.code_interpreter or self.functions is not None:
             self.tools = []
@@ -151,13 +156,32 @@ class Assistants():
         self.handle_files(uploaded_files)
         for container in self.containers:
             container.write()
-        if prompt := st.chat_input(placeholder=self.placeholder):
+        prompt = st.chat_input(placeholder=self.placeholder)
+        if prompt:
             with st.chat_message("user"):
                 st.markdown(prompt)
             self.containers.append(
                 Container(self, "user", blocks=[Block(self, "text", prompt)])
             )
             self.respond(prompt)
+        else:
+            if self.example_messages is not None:
+                if self.selected_example_message is None:
+                    selected_example_message = st.pills(
+                        "Examples",
+                        options=self.example_messages,
+                        label_visibility="collapsed"
+                    )
+                    if selected_example_message:
+                        self.selected_example_message = selected_example_message
+                        st.rerun()
+                else:
+                    with st.chat_message("user"):
+                            st.markdown(self.selected_example_message)
+                    self.containers.append(
+                        Container(self, "user", blocks=[Block(self, "text", self.selected_example_message)])
+                    )
+                    self.respond(self.selected_example_message)
 
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
