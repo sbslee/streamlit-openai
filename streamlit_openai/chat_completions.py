@@ -33,6 +33,7 @@ class ChatCompletions():
         welcome_message (str): Welcome message from the assistant.
         message_files (list): List of files to be uploaded to the assistant during initialization. Currently, only PDF files are supported.
         example_messages (list): A list of example messages for the user to choose from.
+        info_message (str): Information message to be displayed in the chat.
         client (openai.OpenAI): The OpenAI client instance for API calls.
         messages (list): The chat history in OpenAI's expected message format.
         containers (list): List to track the conversation history in structured form.
@@ -52,6 +53,7 @@ class ChatCompletions():
             welcome_message: Optional[str] = None,
             message_files: Optional[List[str]] = None,
             example_messages: Optional[List[dict]] = None,
+            info_message: Optional[str] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.model = model
@@ -64,6 +66,7 @@ class ChatCompletions():
         self.welcome_message = welcome_message
         self.message_files = message_files
         self.example_messages = example_messages
+        self.info_message = info_message
         self.client = openai.OpenAI(api_key=self.api_key)
         self.messages = [{"role": "developer", "content": DEVELOPER_MESSAGE+self.instructions}]
         self.containers = []
@@ -180,6 +183,8 @@ class ChatCompletions():
         
     def run(self, uploaded_files=None) -> None:
         """Runs the main assistant loop: handles user messages."""
+        if self.info_message is not None:
+            st.info(self.info_message)
         self.handle_files(uploaded_files)
         for container in self.containers:
             container.write()
