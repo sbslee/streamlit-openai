@@ -32,10 +32,13 @@ class ChatCompletions():
         placeholder (str): Placeholder text for the chat input box (default: "Your message").
         welcome_message (str): Welcome message from the assistant.
         message_files (list): List of files to be uploaded to the assistant during initialization. Currently, only PDF files are supported.
+        example_messages (list): A list of example messages for the user to choose from.
+        info_message (str): Information message to be displayed in the chat.
         client (openai.OpenAI): The OpenAI client instance for API calls.
         messages (list): The chat history in OpenAI's expected message format.
         containers (list): List to track the conversation history in structured form.
         tools (list): A list of tools derived from function definitions for the assistant to call.
+        selected_example_message (str): The selected example message from the list of example messages.
     """
     def __init__(
             self,
@@ -49,6 +52,8 @@ class ChatCompletions():
             placeholder: Optional[str] = "Your message",
             welcome_message: Optional[str] = None,
             message_files: Optional[List[str]] = None,
+            example_messages: Optional[List[dict]] = None,
+            info_message: Optional[str] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.model = model
@@ -60,11 +65,14 @@ class ChatCompletions():
         self.placeholder = placeholder
         self.welcome_message = welcome_message
         self.message_files = message_files
+        self.example_messages = example_messages
+        self.info_message = info_message
         self.client = openai.OpenAI(api_key=self.api_key)
         self.messages = [{"role": "developer", "content": DEVELOPER_MESSAGE+self.instructions}]
         self.containers = []
         self.tracked_files = []
         self.temp_dir = tempfile.TemporaryDirectory()
+        self.selected_example_message = None
         
         if self.functions is not None:
             self.tools = []
@@ -76,7 +84,7 @@ class ChatCompletions():
         if self.welcome_message is not None:
             self.messages.append({"role": "assistant", "content": self.welcome_message})
             self.containers.append(
-                Container("assistant", blocks=[Block("text", self.welcome_message)])
+                Container(self, "assistant", blocks=[Block(self, "text", self.welcome_message)])
             )
 
         # If message files are provided, upload them to the assistant
@@ -167,7 +175,7 @@ class ChatCompletions():
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
         self.messages.append({"role": "user", "content": prompt})
-        self.containers.append(Container("assistant"))
+        self.containers.append(Container(self, "assistant"))
         if self.functions is None:
             self._respond1()
         else:
@@ -175,16 +183,37 @@ class ChatCompletions():
         
     def run(self, uploaded_files=None) -> None:
         """Runs the main assistant loop: handles user messages."""
+        if self.info_message is not None:
+            st.info(self.info_message)
         self.handle_files(uploaded_files)
         for container in self.containers:
             container.write()
-        if prompt := st.chat_input(placeholder=self.placeholder):
+        prompt = st.chat_input(placeholder=self.placeholder)
+        if prompt:
             with st.chat_message("user"):
                 st.markdown(prompt)
             self.containers.append(
-                Container("user", blocks=[Block("text", prompt)])
+                Container(self, "user", blocks=[Block(self, "text", prompt)])
             )
             self.respond(prompt)
+        else:
+            if self.example_messages is not None:
+                if self.selected_example_message is None:
+                    selected_example_message = st.pills(
+                        "Examples",
+                        options=self.example_messages,
+                        label_visibility="collapsed"
+                    )
+                    if selected_example_message:
+                        self.selected_example_message = selected_example_message
+                        st.rerun()
+                else:
+                    with st.chat_message("user"):
+                            st.markdown(self.selected_example_message)
+                    self.containers.append(
+                        Container(self, "user", blocks=[Block(self, "text", self.selected_example_message)])
+                    )
+                    self.respond(self.selected_example_message)
 
     def handle_files(self, uploaded_files) -> None:
         """Handles uploaded files and manages tracked file lifecycle."""

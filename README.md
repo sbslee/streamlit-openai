@@ -35,6 +35,8 @@ Below is a quick overview of the package's key features:
   - [Instructions](#instructions)
   - [Avatar Image](#avatar-image)
   - [Welcome Message](#welcome-message)
+  - [Example Messages](#example-messages)
+  - [Info Message](#info-message)
   - [Input Box Placeholder](#input-box-placeholder)
   - [Function Calling](#function-calling-2)
     - [Image Generation Example](#image-generation-example)
@@ -425,6 +427,47 @@ import streamlit_openai
 if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.ChatCompletions(
         welcome_message="Hello! How can I assist you today?"
+    )
+
+st.session_state.chat.run()
+```
+
+## Example Messages
+You can use the `example_messages` parameter to provide example messages in 
+the chat interface, helping users understand how to interact with the 
+assistant. Below is an example of how to provide example messages in a chat 
+interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.ChatCompletions(
+        example_messages=[
+            "Can you tell me a joke?",
+            "What is the capital of France?",
+            "How do you make a paper airplane?",
+            "What is the weather like today?",
+        ],
+    )
+
+st.session_state.chat.run()
+```
+
+## Info Message
+The `info_message` parameter allows you to display an informational message 
+within the chat interface, helping users grasp key details about how to 
+interact effectively with the assistant. Here's an example of how to include 
+such a message in the chat interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.ChatCompletions(
+        info_message="This is an informative and helpful message.",
     )
 
 st.session_state.chat.run()

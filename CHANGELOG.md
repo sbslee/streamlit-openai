@@ -1,5 +1,8 @@
 # CHANGELOG
 
+## 0.0.8 (2025-05-14)
+* Add new capabilities.
+
 ## 0.0.7 (2025-04-11)
 * Add new capabilities.
 
