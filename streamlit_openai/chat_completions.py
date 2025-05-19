@@ -227,6 +227,17 @@ class ChatCompletions():
                 tracked_file = TrackedFile(self, uploaded_file=uploaded_file)
                 self.tracked_files.append(tracked_file)
 
+    def save(self, file_path: str) -> None:
+        """Saves the chat history to a JSON file."""
+        if not file_path.endswith(".json"):
+            raise ValueError("File path must end with .json")
+        data = {
+            "class": self.__class__.__name__,
+            "containers": [container.to_dict() for container in self.containers],
+        }
+        with open(file_path, "w") as f:
+            json.dump(data, f, indent=4)
+
 class TrackedFile():
     """
     A class to represent a file that is tracked and managed within the OpenAI 

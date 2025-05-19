@@ -227,6 +227,17 @@ class Assistants():
                 else:
                     continue
 
+    def save(self, file_path: str) -> None:
+        """Saves the chat history to a JSON file."""
+        if not file_path.endswith(".json"):
+            raise ValueError("File path must end with .json")
+        data = {
+            "class": self.__class__.__name__,
+            "containers": [container.to_dict() for container in self.containers],
+        }
+        with open(file_path, "w") as f:
+            json.dump(data, f, indent=4)
+
 class AssistantEventHandler(openai.AssistantEventHandler):
     """
     Custom event handler for OpenAI Assistant streaming events, designed to 
