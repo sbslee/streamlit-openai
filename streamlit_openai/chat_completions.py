@@ -106,10 +106,13 @@ class ChatCompletions():
             stream=True,
             temperature=self.temperature,
         )
-        self.messages.append({"role": "assistant", "content": chunks})
+        response = ""
         for x in chunks:
-            if x.choices[0].delta.content is not None:
-                self.last_container.update_and_stream("text", x.choices[0].delta.content)
+            content = x.choices[0].delta.content
+            if content is not None:
+                self.last_container.update_and_stream("text", content)
+                response += content
+        self.messages.append({"role": "assistant", "content": response})
 
     def _respond2(self) -> None:
         """Streams assistant response with support for tool calls."""
@@ -120,12 +123,14 @@ class ChatCompletions():
             temperature=self.temperature,
             tools=self.tools,
         )
-        self.messages.append({"role": "assistant", "content": chunks})
+        response = ""
         current_tool = {}
         used_tools = {}
         for x in chunks:
-            if x.choices[0].delta.content is not None:
-                self.last_container.update_and_stream("text", x.choices[0].delta.content)
+            content = x.choices[0].delta.content
+            if content is not None:
+                self.last_container.update_and_stream("text", content)
+                response += content
             if x.choices[0].finish_reason == "tool_calls":
                 used_tools[current_tool["name"]] = current_tool
                 current_tool = {}
@@ -138,6 +143,7 @@ class ChatCompletions():
                             "args": "",
                         }
                 current_tool["args"] += x.choices[0].delta.tool_calls[0].function.arguments
+        self.messages.append({"role": "assistant", "content": response})
         if used_tools:
             for tool in used_tools:
                 self.messages.append({
@@ -159,18 +165,19 @@ class ChatCompletions():
                     "tool_call_id": used_tools[tool]["id"],
                     "content": result,
                 })
-
             chunks = self.client.chat.completions.create(
                 model=self.model,
                 messages=self.messages,
                 stream=True,
                 temperature=self.temperature,
             )
-            self.messages.append({"role": "assistant", "content": chunks})
-
+            response = ""
             for x in chunks:
-                if x.choices[0].delta.content is not None:
-                    self.last_container.update_and_stream("text", x.choices[0].delta.content)
+                content = x.choices[0].delta.content
+                if content is not None:
+                    self.last_container.update_and_stream("text", content)
+                    response += content
+            self.messages.append({"role": "assistant", "content": response})
         
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
