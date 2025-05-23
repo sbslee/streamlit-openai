@@ -63,6 +63,7 @@ class Assistants():
         assistant (Assistant): The instantiated or retrieved OpenAI assistant.
         thread (Thread): The conversation thread associated with the assistant.
         selected_example_message (str): The selected example message from the list of example messages.
+        vector_store_ids (list): List of vector store IDs for file search. Only used if file_search is enabled.
     """
     def __init__(
             self,
@@ -82,6 +83,7 @@ class Assistants():
             message_files: Optional[List[str]] = None,
             example_messages: Optional[List[dict]] = None,
             info_message: Optional[str] = None,
+            vector_store_ids: Optional[List[str]] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.client = openai.OpenAI(api_key=self.api_key)
@@ -107,6 +109,7 @@ class Assistants():
         self.download_button_key = 0
         self.temp_dir = tempfile.TemporaryDirectory()
         self.selected_example_message = None
+        self.vector_store_ids = vector_store_ids
 
         if self.file_search or self.code_interpreter or self.functions is not None:
             self.tools = []
@@ -118,6 +121,10 @@ class Assistants():
             for function in self.functions:
                 self.tools.append({"type": "function", "function": function.definition})
 
+        tool_resources = {}
+        if self.file_search and self.vector_store_ids is not None:
+            tool_resources["file_search"] = {"vector_store_ids": self.vector_store_ids}
+
         # Create or retrieve the assistant
         if self.assistant_id is None:
             self.assistant = self.client.beta.assistants.create(
@@ -126,6 +133,7 @@ class Assistants():
                 model=self.model,
                 tools=self.tools,
                 temperature=self.temperature,
+                tool_resources=tool_resources,
             )
         else:
             self.assistant = self.client.beta.assistants.retrieve(self.assistant_id)
