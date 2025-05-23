@@ -190,18 +190,19 @@ class Assistants():
 
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
-        self.containers.append(Container(self, "assistant"))
-        self.client.beta.threads.messages.create(
-            thread_id=self.thread.id,
-            role="user",
-            content=prompt,
-        )
-        with self.client.beta.threads.runs.stream(
-            thread_id=self.thread.id,
-            event_handler=AssistantEventHandler(self),
-            assistant_id=self.assistant.id,
-        ) as stream:
-            stream.until_done()
+        if not self.is_thread_active():
+            self.containers.append(Container(self, "assistant"))
+            self.client.beta.threads.messages.create(
+                thread_id=self.thread.id,
+                role="user",
+                content=prompt,
+            )
+            with self.client.beta.threads.runs.stream(
+                thread_id=self.thread.id,
+                event_handler=AssistantEventHandler(self),
+                assistant_id=self.assistant.id,
+            ) as stream:
+                stream.until_done()
         
     def handle_files(self, uploaded_files) -> None:
         """Handles uploaded files and manages tracked file lifecycle."""
@@ -237,6 +238,23 @@ class Assistants():
         }
         with open(file_path, "w") as f:
             json.dump(data, f, indent=4)
+
+    def is_thread_active(self) -> bool:
+        """Checks if the thread is active."""
+        has_more = True
+        after = None
+        while has_more:
+            response = self.client.beta.threads.runs.list(
+                thread_id=self.thread.id,
+                after=after
+            )
+            for run in response.data:
+                if run.status in ["queued", "in_progress", "requires_action", "cancelling"]:
+                    return True
+            has_more = response.has_more
+            if has_more:
+                after = response.data[-1].id
+        return False
 
 class AssistantEventHandler(openai.AssistantEventHandler):
     """
