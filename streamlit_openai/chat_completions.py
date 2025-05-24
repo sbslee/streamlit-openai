@@ -1,6 +1,6 @@
 import streamlit as st
 import openai
-import os, json, tempfile
+import os, json, tempfile, base64
 from pathlib import Path
 from typing import Optional, List
 from .utils import Container, Block, CustomFunction
@@ -10,6 +10,8 @@ DEVELOPER_MESSAGE = """
 - Use GitHub-flavored Markdown in your response, including tables, images, URLs, code blocks, and lists.
 - Wrap all mathematical expressions and LaTeX terms in `$...$` for inline math and `$$...$$` for display math.
 """
+
+VISION_EXTENSIONS = [".png", ".jpeg", ".jpg", ".webp", ".gif"]
 
 class ChatCompletions():
     """
@@ -291,6 +293,18 @@ class TrackedFile():
                     "content": [
                         {"type": "file", "file": {"file_id": self.openai_file.id}},
                         {"type": "text", "text": f"File uploaded to OpenAI: {self.file_path.name}"}
+                    ]}
+            )
+        elif self.file_path.suffix in VISION_EXTENSIONS:
+            with open(self.file_path, "rb") as f:
+                base64_image = base64.b64encode(f.read()).decode("utf-8")
+            self.chat.messages.append(
+                {"role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/{self.file_path.suffix.replace('.', '')};base64,{base64_image}"}
+                        },
                     ]}
             )
 
