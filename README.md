@@ -29,6 +29,7 @@ Below is a quick overview of the package's key features:
   - [File Search](#file-search)
   - [Code Interpreter](#code-interpreter)
   - [Existing Assistant Retrieval](#existing-assistant-retrieval)
+  - [Existing Vector Store Retrieval](#existing-vector-store-retrieval)
 - [Customization](#customization)
   - [Model Selection](#model-selection)
   - [Temperature](#temperature)
@@ -341,6 +342,26 @@ import streamlit_openai
 if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.Assistants(assistant_id="asst_...")
     
+st.session_state.chat.run()
+```
+
+## Existing Vector Store Retrieval
+You can retrieve one or more existing vector stores by providing their IDs when
+initializing the `Assistants` class. This allows you to use pre-existing vector
+stores for searching and retrieving relevant information during the chat. Note 
+that the `vector_store_ids` parameter is only applicable when the 
+`file_search` parameter is set to `True`. Below is an example of how to 
+retrieve existing vector stores in a chat interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Assistants(
+        file_search=True,
+        vector_store_ids=["vs_...", "vs_..."]
+    )
 st.session_state.chat.run()
 ```
 
