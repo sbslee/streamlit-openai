@@ -380,7 +380,18 @@ class TrackedFile():
             content=f"File locally available at: {self.file_path}",
         )
         
-        if self.chat.tools is None:
+        if self.file_path.suffix in VISION_EXTENSIONS:
+            self.vision_file = self.chat.client.files.create(file=self.file_path, purpose="vision")
+            self.chat.client.beta.threads.messages.create(
+                thread_id=self.chat.thread.id,
+                role="user",
+                content=[
+                    {"type": "text", "text": f"Image uploaded to OpenAI: {self.file_path.name}"},
+                    {"type": "image_file", "image_file": {"file_id": self.vision_file.id}}
+                ]
+            )
+
+        if self.vision_file is None and self.chat.tools is None:
             raise ValueError("No tools available for the file: ", self.file_path.name)
 
         file_tools = []
@@ -398,17 +409,6 @@ class TrackedFile():
                 role="user",    
                 content=f"File uploaded to OpenAI: {self.file_path.name}",
                 attachments=[{"file_id": self.openai_file.id, "tools": file_tools}],
-            )
-
-        if self.file_path.suffix in VISION_EXTENSIONS:
-            self.vision_file = self.chat.client.files.create(file=self.file_path, purpose="vision")
-            self.chat.client.beta.threads.messages.create(
-                thread_id=self.chat.thread.id,
-                role="user",
-                content=[
-                    {"type": "text", "text": f"Image uploaded to OpenAI: {self.file_path.name}"},
-                    {"type": "image_file", "image_file": {"file_id": self.vision_file.id}}
-                ]
             )
 
     def __repr__(self) -> None:
