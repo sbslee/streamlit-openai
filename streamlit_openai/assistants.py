@@ -30,6 +30,8 @@ CODE_INTERPRETER_EXTENSIONS = [
     ".xml", ".zip"
 ]
 
+VISION_EXTENSIONS = [".png", ".jpeg", ".jpg", ".webp", ".gif"]
+
 class Assistants():
     """
     A class to interact with OpenAI's Assistant API, providing conversational 
@@ -345,7 +347,8 @@ class TrackedFile():
         chat (Assistants): The Assistants instance that this file is associated with.
         uploaded_file (UploadedFile): The UploadedFile object created by Streamlit.
         message_file (str): The file path of the message file.
-        openai_file (File): The File object created by OpenAI.
+        openai_file (File): The File object created by OpenAI for general purposes.
+        vision_file (File): The File object created by OpenAI for vision purposes.
         removed (bool): A flag indicating whether the file has been removed.
         file_path (Path): The path to the file on the local filesystem.
     """
@@ -361,6 +364,7 @@ class TrackedFile():
         self.uploaded_file = uploaded_file
         self.message_file = message_file
         self.openai_file = None
+        self.vision_file = None
         self.removed = False
 
         if self.uploaded_file is not None:
@@ -396,16 +400,37 @@ class TrackedFile():
                 attachments=[{"file_id": self.openai_file.id, "tools": file_tools}],
             )
 
+        if self.file_path.suffix in VISION_EXTENSIONS:
+            self.vision_file = self.chat.client.files.create(file=self.file_path, purpose="vision")
+            self.chat.client.beta.threads.messages.create(
+                thread_id=self.chat.thread.id,
+                role="user",
+                content=[
+                    {"type": "text", "text": f"Image uploaded to OpenAI: {self.file_path.name}"},
+                    {"type": "image_file", "image_file": {"file_id": self.vision_file.id}}
+                ]
+            )
+
     def __repr__(self) -> None:
         return f"TrackedFile(uploaded_file='{self.uploaded_file.name}', deleted={self.removed})"
 
     def remove(self) -> None:
-        response = self.chat.client.files.delete(self.openai_file.id)
-        if not response.deleted:
-            raise ValueError("File could not be deleted from OpenAI: ", self.uploaded_file.name)
-        self.chat.client.beta.threads.messages.create(
-            thread_id=self.chat.thread.id,
-            role="user",
-            content=f"File removed: {self.uploaded_file.name}",
-        )
+        if self.openai_file is not None:
+            response = self.chat.client.files.delete(self.openai_file.id)
+            if not response.deleted:
+                raise ValueError("File could not be deleted from OpenAI: ", self.uploaded_file.name)
+            self.chat.client.beta.threads.messages.create(
+                thread_id=self.chat.thread.id,
+                role="user",
+                content=f"File removed: {self.uploaded_file.name}",
+            )
+        if self.vision_file is not None:
+            response = self.chat.client.files.delete(self.vision_file.id)
+            if not response.deleted:
+                raise ValueError("Image could not be deleted from OpenAI: ", self.uploaded_file.name)
+            self.chat.client.beta.threads.messages.create(
+                thread_id=self.chat.thread.id,
+                role="user",
+                content=f"Image removed: {self.uploaded_file.name}",
+            )
         self.removed = True
