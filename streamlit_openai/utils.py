@@ -89,6 +89,19 @@ class Block():
             )
             self.chat.download_button_key += 1
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Converts the block to a dictionary representation."""
+        if self.category in ["text", "code"]:
+            content = self.content
+        elif self.category == "image":
+            content = "Bytes"
+        elif self.category == "download":
+            content = f"File(filename='{os.path.basename(self.content.filename)}')"
+        return {
+            "category": self.category,
+            "content": content,
+        }
+
 class Container():
     """
     Represents a single message container in a Streamlit chat interface, 
@@ -155,6 +168,16 @@ class Container():
         """Renders the container content using Streamlit's delta generator."""
         with self.delta_generator:
             self.write()
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Converts the container to a dictionary representation."""
+        if self.empty:
+            return {}
+        else:
+            return {
+                "role": self.role,
+                "blocks": [block.to_dict() for block in self.blocks],
+            }
 
 class CustomFunction():
     """

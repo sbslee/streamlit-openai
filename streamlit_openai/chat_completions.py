@@ -1,6 +1,6 @@
 import streamlit as st
 import openai
-import os, json, tempfile
+import os, json, tempfile, base64
 from pathlib import Path
 from typing import Optional, List
 from .utils import Container, Block, CustomFunction
@@ -10,6 +10,8 @@ DEVELOPER_MESSAGE = """
 - Use GitHub-flavored Markdown in your response, including tables, images, URLs, code blocks, and lists.
 - Wrap all mathematical expressions and LaTeX terms in `$...$` for inline math and `$$...$$` for display math.
 """
+
+VISION_EXTENSIONS = [".png", ".jpeg", ".jpg", ".webp", ".gif"]
 
 class ChatCompletions():
     """
@@ -106,10 +108,13 @@ class ChatCompletions():
             stream=True,
             temperature=self.temperature,
         )
-        self.messages.append({"role": "assistant", "content": chunks})
+        response = ""
         for x in chunks:
-            if x.choices[0].delta.content is not None:
-                self.last_container.update_and_stream("text", x.choices[0].delta.content)
+            content = x.choices[0].delta.content
+            if content is not None:
+                self.last_container.update_and_stream("text", content)
+                response += content
+        self.messages.append({"role": "assistant", "content": response})
 
     def _respond2(self) -> None:
         """Streams assistant response with support for tool calls."""
@@ -120,12 +125,14 @@ class ChatCompletions():
             temperature=self.temperature,
             tools=self.tools,
         )
-        self.messages.append({"role": "assistant", "content": chunks})
+        response = ""
         current_tool = {}
         used_tools = {}
         for x in chunks:
-            if x.choices[0].delta.content is not None:
-                self.last_container.update_and_stream("text", x.choices[0].delta.content)
+            content = x.choices[0].delta.content
+            if content is not None:
+                self.last_container.update_and_stream("text", content)
+                response += content
             if x.choices[0].finish_reason == "tool_calls":
                 used_tools[current_tool["name"]] = current_tool
                 current_tool = {}
@@ -138,6 +145,7 @@ class ChatCompletions():
                             "args": "",
                         }
                 current_tool["args"] += x.choices[0].delta.tool_calls[0].function.arguments
+        self.messages.append({"role": "assistant", "content": response})
         if used_tools:
             for tool in used_tools:
                 self.messages.append({
@@ -159,18 +167,19 @@ class ChatCompletions():
                     "tool_call_id": used_tools[tool]["id"],
                     "content": result,
                 })
-
             chunks = self.client.chat.completions.create(
                 model=self.model,
                 messages=self.messages,
                 stream=True,
                 temperature=self.temperature,
             )
-            self.messages.append({"role": "assistant", "content": chunks})
-
+            response = ""
             for x in chunks:
-                if x.choices[0].delta.content is not None:
-                    self.last_container.update_and_stream("text", x.choices[0].delta.content)
+                content = x.choices[0].delta.content
+                if content is not None:
+                    self.last_container.update_and_stream("text", content)
+                    response += content
+            self.messages.append({"role": "assistant", "content": response})
         
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
@@ -227,6 +236,17 @@ class ChatCompletions():
                 tracked_file = TrackedFile(self, uploaded_file=uploaded_file)
                 self.tracked_files.append(tracked_file)
 
+    def save(self, file_path: str) -> None:
+        """Saves the chat history to a JSON file."""
+        if not file_path.endswith(".json"):
+            raise ValueError("File path must end with .json")
+        data = {
+            "class": self.__class__.__name__,
+            "containers": [container.to_dict() for container in self.containers],
+        }
+        with open(file_path, "w") as f:
+            json.dump(data, f, indent=4)
+
 class TrackedFile():
     """
     A class to represent a file that is tracked and managed within the OpenAI 
@@ -273,6 +293,18 @@ class TrackedFile():
                     "content": [
                         {"type": "file", "file": {"file_id": self.openai_file.id}},
                         {"type": "text", "text": f"File uploaded to OpenAI: {self.file_path.name}"}
+                    ]}
+            )
+        elif self.file_path.suffix in VISION_EXTENSIONS:
+            with open(self.file_path, "rb") as f:
+                base64_image = base64.b64encode(f.read()).decode("utf-8")
+            self.chat.messages.append(
+                {"role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/{self.file_path.suffix.replace('.', '')};base64,{base64_image}"}
+                        },
                     ]}
             )
 

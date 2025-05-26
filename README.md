@@ -4,8 +4,8 @@ Welcome to the `streamlit-openai` package!
 
 This package provides a Streamlit component for building interactive chat 
 interfaces powered by OpenAI's API. It supports both the Chat Completions and 
-Assistants APIs, with built-in integration for OpenAI tools such as function 
-calling, file search, and more.
+Assistants APIs, with built-in integration for OpenAI tools such as Function 
+Calling, File Search, Code Interpreter, Vision, and more.
 
 Below is a quick overview of the package's key features:
 
@@ -13,6 +13,7 @@ Below is a quick overview of the package's key features:
 - Support for OpenAI’s Chat Completions and Assistants APIs
 - Real-time streaming responses
 - Integration with OpenAI tools: Function Calling, File Search, and Code Interpreter
+- Vision capabilities for processing image inputs
 - File input support for richer interactions
 - Fully customizable chat interface, including model selection, temperature, and more
 
@@ -23,12 +24,15 @@ Below is a quick overview of the package's key features:
 - [Chat Completions API](#chat-completions-api)
   - [Function Calling](#function-calling)
   - [File Inputs](#file-inputs)
+  - [Vision](#vision)
 - [Assistants API](#assistants-api)
   - [Function Calling](#function-calling-1)
   - [File Inputs](#file-inputs-1)
+  - [Vision](#vision-1)
   - [File Search](#file-search)
   - [Code Interpreter](#code-interpreter)
   - [Existing Assistant Retrieval](#existing-assistant-retrieval)
+  - [Existing Vector Store Retrieval](#existing-vector-store-retrieval)
 - [Customization](#customization)
   - [Model Selection](#model-selection)
   - [Temperature](#temperature)
@@ -184,6 +188,24 @@ uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=
 st.session_state.chat.run(uploaded_files=uploaded_files)
 ```
 
+## Vision
+The `ChatCompletions` class supports OpenAI’s Vision capabilities, allowing you
+to process image inputs in the chat interface. You can upload images as part of
+the chat messages, and the assistant can analyze and respond to them. Below is
+an example of how to use the Vision capabilities in a chat interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.ChatCompletions(
+        message_files=["example.jpeg"]
+    )
+
+st.session_state.chat.run()
+```
+
 # Assistants API
 
 The `Assistants` class is a wrapper around OpenAI’s Assistants API, which 
@@ -288,14 +310,32 @@ uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=
 st.session_state.chat.run(uploaded_files=uploaded_files)
 ```
 
+## Vision
+The `Assistants` class supports OpenAI’s Vision capabilities, allowing you
+to process image inputs in the chat interface. You can upload images as part of
+the chat messages, and the assistant can analyze and respond to them. Below is
+an example of how to use the Vision capabilities in a chat interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Assistants(
+        message_files=["example.jpeg"]
+    )
+
+st.session_state.chat.run()
+```
+
 ## File Search
 
 You can allow models to search your files for relevant information before 
-generating a response by using OpenAI’s file search capabilities. To enable 
-file search, set the `file_search` parameter to `True` when initializing the 
+generating a response by using OpenAI’s File Search capabilities. To enable 
+File Search, set the `file_search` parameter to `True` when initializing the 
 `Assistants` class. Note that this feature is available only in the Assistants 
 API and not in the Chat Completions API from OpenAI. Below is an example of
-how to enable file search in a chat interface:
+how to enable File Search in a chat interface:
 
 ```python
 import streamlit as st
@@ -312,11 +352,11 @@ st.session_state.chat.run(uploaded_files=uploaded_files)
 ## Code Interpreter
 
 You can allow models to run Python code in a sandboxed execution environment 
-using OpenAI’s code interpreter capabilities. To enable code interpreter, set 
+using OpenAI’s Code Interpreter capabilities. To enable Code Interpreter, set 
 the `code_interpreter` parameter to `True` when initializing the `Assistants` 
 class. Note that this feature is available only in the Assistants API and not 
 in the Chat Completions API from OpenAI. Below is an example of how to enable 
-code interpreter in a chat interface:
+Code Interpreter in a chat interface:
 
 ```python
 import streamlit as st
@@ -341,6 +381,26 @@ import streamlit_openai
 if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.Assistants(assistant_id="asst_...")
     
+st.session_state.chat.run()
+```
+
+## Existing Vector Store Retrieval
+You can retrieve one or more existing vector stores by providing their IDs when
+initializing the `Assistants` class. This allows you to use pre-existing vector
+stores for searching and retrieving relevant information during the chat. Note 
+that the `vector_store_ids` parameter is only applicable when the 
+`file_search` parameter is set to `True`. Below is an example of how to 
+retrieve existing vector stores in a chat interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Assistants(
+        file_search=True,
+        vector_store_ids=["vs_...", "vs_..."]
+    )
 st.session_state.chat.run()
 ```
 

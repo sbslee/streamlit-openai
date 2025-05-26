@@ -30,6 +30,8 @@ CODE_INTERPRETER_EXTENSIONS = [
     ".xml", ".zip"
 ]
 
+VISION_EXTENSIONS = [".png", ".jpeg", ".jpg", ".webp", ".gif"]
+
 class Assistants():
     """
     A class to interact with OpenAI's Assistant API, providing conversational 
@@ -63,6 +65,7 @@ class Assistants():
         assistant (Assistant): The instantiated or retrieved OpenAI assistant.
         thread (Thread): The conversation thread associated with the assistant.
         selected_example_message (str): The selected example message from the list of example messages.
+        vector_store_ids (list): List of vector store IDs for file search. Only used if file_search is enabled.
     """
     def __init__(
             self,
@@ -82,6 +85,7 @@ class Assistants():
             message_files: Optional[List[str]] = None,
             example_messages: Optional[List[dict]] = None,
             info_message: Optional[str] = None,
+            vector_store_ids: Optional[List[str]] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.client = openai.OpenAI(api_key=self.api_key)
@@ -107,6 +111,7 @@ class Assistants():
         self.download_button_key = 0
         self.temp_dir = tempfile.TemporaryDirectory()
         self.selected_example_message = None
+        self.vector_store_ids = vector_store_ids
 
         if self.file_search or self.code_interpreter or self.functions is not None:
             self.tools = []
@@ -118,6 +123,10 @@ class Assistants():
             for function in self.functions:
                 self.tools.append({"type": "function", "function": function.definition})
 
+        tool_resources = {}
+        if self.file_search and self.vector_store_ids is not None:
+            tool_resources["file_search"] = {"vector_store_ids": self.vector_store_ids}
+
         # Create or retrieve the assistant
         if self.assistant_id is None:
             self.assistant = self.client.beta.assistants.create(
@@ -126,6 +135,7 @@ class Assistants():
                 model=self.model,
                 tools=self.tools,
                 temperature=self.temperature,
+                tool_resources=tool_resources,
             )
         else:
             self.assistant = self.client.beta.assistants.retrieve(self.assistant_id)
@@ -190,18 +200,19 @@ class Assistants():
 
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
-        self.containers.append(Container(self, "assistant"))
-        self.client.beta.threads.messages.create(
-            thread_id=self.thread.id,
-            role="user",
-            content=prompt,
-        )
-        with self.client.beta.threads.runs.stream(
-            thread_id=self.thread.id,
-            event_handler=AssistantEventHandler(self),
-            assistant_id=self.assistant.id,
-        ) as stream:
-            stream.until_done()
+        if not self.is_thread_active():
+            self.containers.append(Container(self, "assistant"))
+            self.client.beta.threads.messages.create(
+                thread_id=self.thread.id,
+                role="user",
+                content=prompt,
+            )
+            with self.client.beta.threads.runs.stream(
+                thread_id=self.thread.id,
+                event_handler=AssistantEventHandler(self),
+                assistant_id=self.assistant.id,
+            ) as stream:
+                stream.until_done()
         
     def handle_files(self, uploaded_files) -> None:
         """Handles uploaded files and manages tracked file lifecycle."""
@@ -226,6 +237,34 @@ class Assistants():
                     tracked_file.remove()
                 else:
                     continue
+
+    def save(self, file_path: str) -> None:
+        """Saves the chat history to a JSON file."""
+        if not file_path.endswith(".json"):
+            raise ValueError("File path must end with .json")
+        data = {
+            "class": self.__class__.__name__,
+            "containers": [container.to_dict() for container in self.containers],
+        }
+        with open(file_path, "w") as f:
+            json.dump(data, f, indent=4)
+
+    def is_thread_active(self) -> bool:
+        """Checks if the thread is active."""
+        has_more = True
+        after = None
+        while has_more:
+            response = self.client.beta.threads.runs.list(
+                thread_id=self.thread.id,
+                after=after
+            )
+            for run in response.data:
+                if run.status in ["queued", "in_progress", "requires_action", "cancelling"]:
+                    return True
+            has_more = response.has_more
+            if has_more:
+                after = response.data[-1].id
+        return False
 
 class AssistantEventHandler(openai.AssistantEventHandler):
     """
@@ -308,7 +347,8 @@ class TrackedFile():
         chat (Assistants): The Assistants instance that this file is associated with.
         uploaded_file (UploadedFile): The UploadedFile object created by Streamlit.
         message_file (str): The file path of the message file.
-        openai_file (File): The File object created by OpenAI.
+        openai_file (File): The File object created by OpenAI for general purposes.
+        vision_file (File): The File object created by OpenAI for vision purposes.
         removed (bool): A flag indicating whether the file has been removed.
         file_path (Path): The path to the file on the local filesystem.
     """
@@ -324,6 +364,7 @@ class TrackedFile():
         self.uploaded_file = uploaded_file
         self.message_file = message_file
         self.openai_file = None
+        self.vision_file = None
         self.removed = False
 
         if self.uploaded_file is not None:
@@ -339,7 +380,18 @@ class TrackedFile():
             content=f"File locally available at: {self.file_path}",
         )
         
-        if self.chat.tools is None:
+        if self.file_path.suffix in VISION_EXTENSIONS:
+            self.vision_file = self.chat.client.files.create(file=self.file_path, purpose="vision")
+            self.chat.client.beta.threads.messages.create(
+                thread_id=self.chat.thread.id,
+                role="user",
+                content=[
+                    {"type": "text", "text": f"Image uploaded to OpenAI: {self.file_path.name}"},
+                    {"type": "image_file", "image_file": {"file_id": self.vision_file.id}}
+                ]
+            )
+
+        if self.vision_file is None and self.chat.tools is None:
             raise ValueError("No tools available for the file: ", self.file_path.name)
 
         file_tools = []
@@ -363,12 +415,22 @@ class TrackedFile():
         return f"TrackedFile(uploaded_file='{self.uploaded_file.name}', deleted={self.removed})"
 
     def remove(self) -> None:
-        response = self.chat.client.files.delete(self.openai_file.id)
-        if not response.deleted:
-            raise ValueError("File could not be deleted from OpenAI: ", self.uploaded_file.name)
-        self.chat.client.beta.threads.messages.create(
-            thread_id=self.chat.thread.id,
-            role="user",
-            content=f"File removed: {self.uploaded_file.name}",
-        )
+        if self.openai_file is not None:
+            response = self.chat.client.files.delete(self.openai_file.id)
+            if not response.deleted:
+                raise ValueError("File could not be deleted from OpenAI: ", self.uploaded_file.name)
+            self.chat.client.beta.threads.messages.create(
+                thread_id=self.chat.thread.id,
+                role="user",
+                content=f"File removed: {self.uploaded_file.name}",
+            )
+        if self.vision_file is not None:
+            response = self.chat.client.files.delete(self.vision_file.id)
+            if not response.deleted:
+                raise ValueError("Image could not be deleted from OpenAI: ", self.uploaded_file.name)
+            self.chat.client.beta.threads.messages.create(
+                thread_id=self.chat.thread.id,
+                role="user",
+                content=f"Image removed: {self.uploaded_file.name}",
+            )
         self.removed = True
