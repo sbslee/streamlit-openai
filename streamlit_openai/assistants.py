@@ -228,18 +228,19 @@ class Assistants():
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
         if not self.is_thread_active():
-            self.containers.append(Container(self, "assistant"))
             self.client.beta.threads.messages.create(
                 thread_id=self.thread.id,
                 role="user",
                 content=prompt,
             )
-            with self.client.beta.threads.runs.stream(
-                thread_id=self.thread.id,
-                event_handler=AssistantEventHandler(self),
-                assistant_id=self.assistant.id,
-            ) as stream:
-                stream.until_done()
+            self.containers.append(Container(self, "assistant"))
+            if not self.is_thread_active():
+                with self.client.beta.threads.runs.stream(
+                    thread_id=self.thread.id,
+                    event_handler=AssistantEventHandler(self),
+                    assistant_id=self.assistant.id,
+                ) as stream:
+                    stream.until_done()
         
     def handle_files(self, uploaded_files) -> None:
         """Handles uploaded files and manages tracked file lifecycle."""
