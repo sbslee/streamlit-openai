@@ -555,7 +555,7 @@ st.session_state.chat.run()
 
 ## Chat History
 You can save chat history to allow users to continue conversations across 
-different sessions. The `C`hatCompletions` and `Assistants` classes include a 
+different sessions. The `ChatCompletions` and `Assistants` classes include a 
 `save` method for this purpose. The chat history will be saved as a JSON file. 
 Note that currently, only text content is saved -- other file types (e.g., 
 images) are not supported. Below is an example of how to save a chat history:
