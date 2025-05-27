@@ -319,7 +319,7 @@ class AssistantEventHandler(openai.AssistantEventHandler):
                         "download",
                         self.chat.client.files.retrieve(annotation.file_path.file_id)
                     )
-        if delta.value is not None:
+        if delta.value is not None and delta.value:
             self.chat.last_container.update_and_stream("text", delta.value)
             self.chat.last_container.last_block.content = re.sub(r"【.*?】", "", self.chat.last_container.last_block.content)
             self.chat.last_container.last_block.content = re.sub(r"\[.*?\]\(sandbox:/mnt/data/.*?\)", "", self.chat.last_container.last_block.content)
