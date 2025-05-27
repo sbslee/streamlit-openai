@@ -36,6 +36,7 @@ class ChatCompletions():
         message_files (list): List of files to be uploaded to the assistant during initialization. Currently, only PDF files are supported.
         example_messages (list): A list of example messages for the user to choose from.
         info_message (str): Information message to be displayed in the chat.
+        history (str): File path to the chat history JSON file. If provided, the chat history will be loaded from this file.
         client (openai.OpenAI): The OpenAI client instance for API calls.
         messages (list): The chat history in OpenAI's expected message format.
         containers (list): List to track the conversation history in structured form.
@@ -56,6 +57,7 @@ class ChatCompletions():
             message_files: Optional[List[str]] = None,
             example_messages: Optional[List[dict]] = None,
             info_message: Optional[str] = None,
+            history: Optional[str] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.model = model
@@ -69,6 +71,7 @@ class ChatCompletions():
         self.message_files = message_files
         self.example_messages = example_messages
         self.info_message = info_message
+        self.history = history
         self.client = openai.OpenAI(api_key=self.api_key)
         self.messages = [{"role": "developer", "content": DEVELOPER_MESSAGE+self.instructions}]
         self.containers = []
@@ -94,6 +97,24 @@ class ChatCompletions():
             for message_file in self.message_files:
                 tracked_file = TrackedFile(self, message_file=message_file)
                 self.tracked_files.append(tracked_file)
+
+        # If chat history file is provided, load the chat history
+        if self.history is not None:
+            if not self.history.endswith(".json"):
+                raise ValueError("History file must end with .json")
+            with open(self.history, "r") as f:
+                data = json.load(f)
+                if data["class"] != self.__class__.__name__:
+                    raise ValueError(f"Expected class {self.__class__.__name__}, but got {data['class']}")
+                for container in data["containers"]:
+                    self.containers.append(Container(
+                        self,
+                        container["role"],
+                        blocks=[Block(self, block["category"], block["content"]) for block in container["blocks"]]
+                    ))
+                    self.messages.extend([
+                        {"role": container["role"], "content": block["content"]} for block in container["blocks"]
+                    ])
 
     @property
     def last_container(self) -> Optional[Container]:

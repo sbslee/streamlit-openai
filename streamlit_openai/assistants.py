@@ -59,13 +59,14 @@ class Assistants():
         message_files (list): List of files to be uploaded to the assistant during initialization.
         example_messages (list): A list of example messages for the user to choose from.
         info_message (str): Information message to be displayed in the chat.
+        vector_store_ids (list): List of vector store IDs for file search. Only used if file_search is enabled.
+        history (str): File path to the chat history JSON file. If provided, the chat history will be loaded from this file.
         containers (list): List to track the conversation history in structured form.
         tools (list): Tools (custom functions, file search, code interpreter) enabled for the assistant.
         tracked_files (list): List of files being tracked for uploads/removals.
         assistant (Assistant): The instantiated or retrieved OpenAI assistant.
         thread (Thread): The conversation thread associated with the assistant.
         selected_example_message (str): The selected example message from the list of example messages.
-        vector_store_ids (list): List of vector store IDs for file search. Only used if file_search is enabled.
     """
     def __init__(
             self,
@@ -86,6 +87,7 @@ class Assistants():
             example_messages: Optional[List[dict]] = None,
             info_message: Optional[str] = None,
             vector_store_ids: Optional[List[str]] = None,
+            history: Optional[str] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.client = openai.OpenAI(api_key=self.api_key)
@@ -104,6 +106,8 @@ class Assistants():
         self.message_files = message_files
         self.example_messages = example_messages
         self.info_message = info_message
+        self.vector_store_ids = vector_store_ids
+        self.history = history
         self.assistant_avatar = assistant_avatar
         self.assistant_id = assistant_id
         self.assistant = None
@@ -111,7 +115,6 @@ class Assistants():
         self.download_button_key = 0
         self.temp_dir = tempfile.TemporaryDirectory()
         self.selected_example_message = None
-        self.vector_store_ids = vector_store_ids
 
         if self.file_search or self.code_interpreter or self.functions is not None:
             self.tools = []
@@ -158,6 +161,27 @@ class Assistants():
             for message_file in self.message_files:
                 tracked_file = TrackedFile(self, message_file=message_file)
                 self.tracked_files.append(tracked_file)
+
+        # If chat history file is provided, load the chat history
+        if self.history is not None:
+            if not self.history.endswith(".json"):
+                raise ValueError("History file must end with .json")
+            with open(self.history, "r") as f:
+                data = json.load(f)
+                if data["class"] != self.__class__.__name__:
+                    raise ValueError(f"Expected class {self.__class__.__name__}, but got {data['class']}")
+                for container in data["containers"]:
+                    self.containers.append(Container(
+                        self,
+                        container["role"],
+                        blocks=[Block(self, block["category"], block["content"]) for block in container["blocks"]]
+                    ))
+                    for block in container["blocks"]:
+                        self.client.beta.threads.messages.create(
+                            thread_id=self.thread.id,
+                            role=container["role"],
+                            content=block["content"],
+                        )
 
     @property
     def last_container(self) -> Optional[Container]:
