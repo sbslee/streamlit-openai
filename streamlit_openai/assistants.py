@@ -1,6 +1,6 @@
 import streamlit as st
 import openai
-import os, json, re, tempfile
+import os, json, re, tempfile, zipfile
 from pathlib import Path
 from typing import Optional, List
 from .utils import Container, Block, CustomFunction
@@ -60,7 +60,7 @@ class Assistants():
         example_messages (list): A list of example messages for the user to choose from.
         info_message (str): Information message to be displayed in the chat.
         vector_store_ids (list): List of vector store IDs for file search. Only used if file_search is enabled.
-        history (str): File path to the chat history JSON file. If provided, the chat history will be loaded from this file.
+        history (str): File path to the chat history ZIP file. If provided, the chat history will be loaded from this file.
         containers (list): List to track the conversation history in structured form.
         tools (list): Tools (custom functions, file search, code interpreter) enabled for the assistant.
         tracked_files (list): List of files being tracked for uploads/removals.
@@ -164,24 +164,27 @@ class Assistants():
 
         # If chat history file is provided, load the chat history
         if self.history is not None:
-            if not self.history.endswith(".json"):
-                raise ValueError("History file must end with .json")
-            with open(self.history, "r") as f:
-                data = json.load(f)
-                if data["class"] != self.__class__.__name__:
-                    raise ValueError(f"Expected class {self.__class__.__name__}, but got {data['class']}")
-                for container in data["containers"]:
-                    self.containers.append(Container(
-                        self,
-                        container["role"],
-                        blocks=[Block(self, block["category"], block["content"]) for block in container["blocks"]]
-                    ))
-                    for block in container["blocks"]:
-                        self.client.beta.threads.messages.create(
-                            thread_id=self.thread.id,
-                            role=container["role"],
-                            content=block["content"],
-                        )
+            if not self.history.endswith(".zip"):
+                raise ValueError("History file must end with .zip")
+            with tempfile.TemporaryDirectory() as t:
+                with zipfile.ZipFile(self.history, "r") as f:
+                    f.extractall(t)
+                with open(f"{t}/{self.history.replace('.zip', '')}/data.json", "r") as f:
+                    data = json.load(f)
+                    if data["class"] != self.__class__.__name__:
+                        raise ValueError(f"Expected class {self.__class__.__name__}, but got {data['class']}")
+                    for container in data["containers"]:
+                        self.containers.append(Container(
+                            self,
+                            container["role"],
+                            blocks=[Block(self, block["category"], block["content"]) for block in container["blocks"]]
+                        ))
+                        for block in container["blocks"]:
+                            self.client.beta.threads.messages.create(
+                                thread_id=self.thread.id,
+                                role=container["role"],
+                                content=block["content"],
+                            )
 
     @property
     def last_container(self) -> Optional[Container]:
@@ -263,15 +266,23 @@ class Assistants():
                     continue
 
     def save(self, file_path: str) -> None:
-        """Saves the chat history to a JSON file."""
-        if not file_path.endswith(".json"):
-            raise ValueError("File path must end with .json")
+        """Saves the chat history to a ZIP file."""
+        if not file_path.endswith(".zip"):
+            raise ValueError("File path must end with .zip")
         data = {
             "class": self.__class__.__name__,
             "containers": [container.to_dict() for container in self.containers],
         }
-        with open(file_path, "w") as f:
-            json.dump(data, f, indent=4)
+        with tempfile.TemporaryDirectory() as t:
+            with open(f"{t}/data.json", "w") as f:
+                json.dump(data, f, indent=4)
+            with zipfile.ZipFile(file_path, "w", zipfile.ZIP_DEFLATED) as f:
+                for root, dirs, files in os.walk(t):
+                    for file in files:
+                        f.write(
+                            os.path.join(root, file),
+                            arcname=os.path.join(os.path.basename(file_path.replace(".zip", "")), file)
+                        )
 
     def is_thread_active(self) -> bool:
         """Checks if the thread is active."""

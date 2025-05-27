@@ -1,6 +1,6 @@
 import streamlit as st
 import openai
-import os, json, tempfile, base64
+import os, json, tempfile, base64, zipfile
 from pathlib import Path
 from typing import Optional, List
 from .utils import Container, Block, CustomFunction
@@ -36,7 +36,7 @@ class ChatCompletions():
         message_files (list): List of files to be uploaded to the assistant during initialization. Currently, only PDF files are supported.
         example_messages (list): A list of example messages for the user to choose from.
         info_message (str): Information message to be displayed in the chat.
-        history (str): File path to the chat history JSON file. If provided, the chat history will be loaded from this file.
+        history (str): File path to the chat history ZIP file. If provided, the chat history will be loaded from this file.
         client (openai.OpenAI): The OpenAI client instance for API calls.
         messages (list): The chat history in OpenAI's expected message format.
         containers (list): List to track the conversation history in structured form.
@@ -100,21 +100,24 @@ class ChatCompletions():
 
         # If chat history file is provided, load the chat history
         if self.history is not None:
-            if not self.history.endswith(".json"):
-                raise ValueError("History file must end with .json")
-            with open(self.history, "r") as f:
-                data = json.load(f)
-                if data["class"] != self.__class__.__name__:
-                    raise ValueError(f"Expected class {self.__class__.__name__}, but got {data['class']}")
-                for container in data["containers"]:
-                    self.containers.append(Container(
-                        self,
-                        container["role"],
-                        blocks=[Block(self, block["category"], block["content"]) for block in container["blocks"]]
-                    ))
-                    self.messages.extend([
-                        {"role": container["role"], "content": block["content"]} for block in container["blocks"]
-                    ])
+            if not self.history.endswith(".zip"):
+                raise ValueError("History file must end with .zip")
+            with tempfile.TemporaryDirectory() as t:
+                with zipfile.ZipFile(self.history, "r") as f:
+                    f.extractall(t)
+                with open(f"{t}/{self.history.replace('.zip', '')}/data.json", "r") as f:
+                    data = json.load(f)
+                    if data["class"] != self.__class__.__name__:
+                        raise ValueError(f"Expected class {self.__class__.__name__}, but got {data['class']}")
+                    for container in data["containers"]:
+                        self.containers.append(Container(
+                            self,
+                            container["role"],
+                            blocks=[Block(self, block["category"], block["content"]) for block in container["blocks"]]
+                        ))
+                        self.messages.extend([
+                            {"role": container["role"], "content": block["content"]} for block in container["blocks"]
+                        ])
 
     @property
     def last_container(self) -> Optional[Container]:
@@ -258,15 +261,23 @@ class ChatCompletions():
                 self.tracked_files.append(tracked_file)
 
     def save(self, file_path: str) -> None:
-        """Saves the chat history to a JSON file."""
-        if not file_path.endswith(".json"):
-            raise ValueError("File path must end with .json")
+        """Saves the chat history to a ZIP file."""
+        if not file_path.endswith(".zip"):
+            raise ValueError("File path must end with .zip")
         data = {
             "class": self.__class__.__name__,
             "containers": [container.to_dict() for container in self.containers],
         }
-        with open(file_path, "w") as f:
-            json.dump(data, f, indent=4)
+        with tempfile.TemporaryDirectory() as t:
+            with open(f"{t}/data.json", "w") as f:
+                json.dump(data, f, indent=4)
+            with zipfile.ZipFile(file_path, "w", zipfile.ZIP_DEFLATED) as f:
+                for root, dirs, files in os.walk(t):
+                    for file in files:
+                        f.write(
+                            os.path.join(root, file),
+                            arcname=os.path.join(os.path.basename(file_path.replace(".zip", "")), file)
+                        )
 
 class TrackedFile():
     """

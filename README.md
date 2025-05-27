@@ -556,7 +556,7 @@ st.session_state.chat.run()
 ## Chat History
 You can save chat history to allow users to continue conversations across 
 different sessions. The `ChatCompletions` and `Assistants` classes include a 
-`save` method for this purpose. The chat history will be saved as a JSON file. 
+`save` method for this purpose. The chat history will be saved as a ZIP file. 
 Note that currently, only text content is saved -- other file types (e.g., 
 images) are not supported. Below is an example of how to save a chat history:
 
@@ -569,7 +569,7 @@ if "chat" not in st.session_state:
     
 with st.sidebar:
     if st.button("Save"):
-        st.session_state.chat.save("history.json")
+        st.session_state.chat.save("history.zip")
 
 st.session_state.chat.run()
 ```
@@ -583,7 +583,7 @@ import streamlit as st
 import streamlit_openai
 
 if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.ChatCompletions(history="history.json")
+    st.session_state.chat = streamlit_openai.ChatCompletions(history="history.zip")
 
 st.session_state.chat.run()
 ```
