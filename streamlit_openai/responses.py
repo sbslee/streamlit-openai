@@ -94,10 +94,10 @@ class Responses():
 
 class TrackedFile():
     def __init__(
-            self,
-            chat: Responses,
-            uploaded_file: Optional[UploadedFile] = None,
-            message_file: Optional[str] = None,
+        self,
+        chat: Responses,
+        uploaded_file: Optional[UploadedFile] = None,
+        message_file: Optional[str] = None,
     ) -> None:
         if (uploaded_file is None) == (message_file is None):
             raise ValueError("Exactly one of 'uploaded_file' or 'message_file' must be provided.")
@@ -105,6 +105,7 @@ class TrackedFile():
         self.uploaded_file = uploaded_file
         self.message_file = message_file
         self.openai_file = None
+        self.vector_store = None
 
         if self.uploaded_file is not None:
             self.file_path = Path(os.path.join(self.chat.temp_dir.name, self.uploaded_file.name))
@@ -114,43 +115,36 @@ class TrackedFile():
             self.file_path = Path(self.message_file).resolve()
 
         self.chat.input.append(
-            {"role": "user",
-                "content": [
-                    {"type": "input_text", "text": f"File locally available at: {self.file_path}"}
-                ]}
+            {"role": "user", "content": [{"type": "input_text", "text": f"File locally available at: {self.file_path}"}]}
         )
 
-        with open(self.file_path, "rb") as f:
-            self.openai_file = self.chat.client.files.create(file=f, purpose="assistants")
-
-        vector_store = self.chat.client.vector_stores.create()
-
-        self.chat.client.vector_stores.files.create(
-            vector_store_id=vector_store.id,
-            file_id=self.openai_file.id
-        )
-
-        result = self.chat.client.vector_stores.files.retrieve(
-            vector_store_id=vector_store.id,
-            file_id=self.openai_file.id,
-        )
-
-        while result.status != "completed":
+        if self.file_path.suffix in FILE_SEARCH_EXTENSIONS:
+            with open(self.file_path, "rb") as f:
+                self.openai_file = self.chat.client.files.create(file=f, purpose="assistants")
+            self.vector_store = self.chat.client.vector_stores.create()
+            self.chat.client.vector_stores.files.create(
+                vector_store_id=self.vector_store.id,
+                file_id=self.openai_file.id
+            )
             result = self.chat.client.vector_stores.files.retrieve(
-                vector_store_id=vector_store.id,
+                vector_store_id=self.vector_store.id,
                 file_id=self.openai_file.id,
             )
-
-        if not self.chat.tools:
-            self.chat.tools.append({"type": "file_search", "vector_store_ids": [vector_store.id]})
-        else:
-            for tool in self.chat.tools:
-                if tool["type"] == "file_search":
-                    if vector_store.id not in tool["vector_store_ids"]:
-                        tool["vector_store_ids"].append(vector_store.id)
-                    break
+            while result.status != "completed":
+                result = self.chat.client.vector_stores.files.retrieve(
+                    vector_store_id=self.vector_store.id,
+                    file_id=self.openai_file.id,
+                )
+            if not self.chat.tools:
+                self.chat.tools.append({"type": "file_search", "vector_store_ids": [self.vector_store.id]})
             else:
-                self.chat.tools.append({"type": "file_search", "vector_store_ids": [vector_store.id]})
+                for tool in self.chat.tools:
+                    if tool["type"] == "file_search":
+                        if self.vector_store.id not in tool["vector_store_ids"]:
+                            tool["vector_store_ids"].append(self.vector_store.id)
+                        break
+                else:
+                    self.chat.tools.append({"type": "file_search", "vector_store_ids": [self.vector_store.id]})
 
     def __repr__(self) -> None:
         return f"TrackedFile(uploaded_file='{self.file_path.name}')"
