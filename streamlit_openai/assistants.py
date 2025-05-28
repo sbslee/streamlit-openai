@@ -292,6 +292,7 @@ class Assistants():
         while has_more:
             response = self.client.beta.threads.runs.list(
                 thread_id=self.thread.id,
+                limit=100,
                 after=after
             )
             for run in response.data:
