@@ -69,25 +69,25 @@ class Assistants():
         selected_example_message (str): The selected example message from the list of example messages.
     """
     def __init__(
-            self,
-            api_key: Optional[str] = None,
-            model: Optional[str] = "gpt-4o",
-            name: Optional[str] = None,
-            assistant_id: Optional[str] = None,
-            functions: Optional[List[CustomFunction]] = None,
-            file_search: bool = False,
-            code_interpreter: bool = False,
-            user_avatar: Optional[str] = None,
-            assistant_avatar: Optional[str] = None,
-            instructions: Optional[str] = None,
-            temperature: Optional[float] = 1.0,
-            placeholder: Optional[str] = "Your message",
-            welcome_message: Optional[str] = None,
-            message_files: Optional[List[str]] = None,
-            example_messages: Optional[List[dict]] = None,
-            info_message: Optional[str] = None,
-            vector_store_ids: Optional[List[str]] = None,
-            history: Optional[str] = None,
+        self,
+        api_key: Optional[str] = None,
+        model: Optional[str] = "gpt-4o",
+        name: Optional[str] = None,
+        assistant_id: Optional[str] = None,
+        functions: Optional[List[CustomFunction]] = None,
+        file_search: bool = False,
+        code_interpreter: bool = False,
+        user_avatar: Optional[str] = None,
+        assistant_avatar: Optional[str] = None,
+        instructions: Optional[str] = None,
+        temperature: Optional[float] = 1.0,
+        placeholder: Optional[str] = "Your message",
+        welcome_message: Optional[str] = None,
+        message_files: Optional[List[str]] = None,
+        example_messages: Optional[List[dict]] = None,
+        info_message: Optional[str] = None,
+        vector_store_ids: Optional[List[str]] = None,
+        history: Optional[str] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.client = openai.OpenAI(api_key=self.api_key)
@@ -317,8 +317,8 @@ class AssistantEventHandler(openai.AssistantEventHandler):
         chat (Assistants): The Assistants instance that this event handler is associated with.
     """
     def __init__(
-            self,
-            chat: Assistants,
+        self,
+        chat: Assistants,
     ) -> None:
         super().__init__()
         self.chat = chat
@@ -390,10 +390,10 @@ class TrackedFile():
         file_path (Path): The path to the file on the local filesystem.
     """
     def __init__(
-            self,
-            chat: Assistants,
-            uploaded_file: Optional[UploadedFile] = None,
-            message_file: Optional[str] = None,
+        self,
+        chat: Assistants,
+        uploaded_file: Optional[UploadedFile] = None,
+        message_file: Optional[str] = None,
     ) -> None:
         if (uploaded_file is None) == (message_file is None):
             raise ValueError("Exactly one of 'uploaded_file' or 'message_file' must be provided.")

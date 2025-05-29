@@ -44,20 +44,20 @@ class ChatCompletions():
         selected_example_message (str): The selected example message from the list of example messages.
     """
     def __init__(
-            self,
-            api_key: Optional[str] = None,
-            model: Optional[str] = "gpt-4o",
-            functions: Optional[List[CustomFunction]] = None,
-            user_avatar: Optional[str] = None,
-            assistant_avatar: Optional[str] = None,
-            instructions: Optional[str] = None,
-            temperature: Optional[float] = 1.0,
-            placeholder: Optional[str] = "Your message",
-            welcome_message: Optional[str] = None,
-            message_files: Optional[List[str]] = None,
-            example_messages: Optional[List[dict]] = None,
-            info_message: Optional[str] = None,
-            history: Optional[str] = None,
+        self,
+        api_key: Optional[str] = None,
+        model: Optional[str] = "gpt-4o",
+        functions: Optional[List[CustomFunction]] = None,
+        user_avatar: Optional[str] = None,
+        assistant_avatar: Optional[str] = None,
+        instructions: Optional[str] = None,
+        temperature: Optional[float] = 1.0,
+        placeholder: Optional[str] = "Your message",
+        welcome_message: Optional[str] = None,
+        message_files: Optional[List[str]] = None,
+        example_messages: Optional[List[dict]] = None,
+        info_message: Optional[str] = None,
+        history: Optional[str] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.model = model
@@ -292,10 +292,10 @@ class TrackedFile():
         file_path (Path): The path to the file on the local filesystem.
     """
     def __init__(
-            self,
-            chat: ChatCompletions,
-            uploaded_file: Optional[UploadedFile] = None,
-            message_file: Optional[str] = None,
+        self,
+        chat: ChatCompletions,
+        uploaded_file: Optional[UploadedFile] = None,
+        message_file: Optional[str] = None,
     ) -> None:
         if (uploaded_file is None) == (message_file is None):
             raise ValueError("Exactly one of 'uploaded_file' or 'message_file' must be provided.")
@@ -311,34 +311,31 @@ class TrackedFile():
         else:
             self.file_path = Path(self.message_file).resolve()
 
-        self.chat.messages.append(
-            {"role": "user",
-                "content": [
-                    {"type": "text", "text": f"File locally available at: {self.file_path}"}
-                ]}
-        )
+        self.chat.messages.append({
+            "role": "user",
+            "content": [
+                {"type": "text", "text": f"File locally available at: {self.file_path}"}
+            ]
+        })
 
         if self.file_path.name.endswith(".pdf"):
             self.openai_file = self.chat.client.files.create(file=self.file_path, purpose="user_data")
-            self.chat.messages.append(
-                {"role": "user",
-                    "content": [
-                        {"type": "file", "file": {"file_id": self.openai_file.id}},
-                        {"type": "text", "text": f"File uploaded to OpenAI: {self.file_path.name}"}
-                    ]}
-            )
+            self.chat.messages.append({
+                "role": "user",
+                "content": [
+                    {"type": "file", "file": {"file_id": self.openai_file.id}},
+                    {"type": "text", "text": f"File uploaded to OpenAI: {self.file_path.name}"}
+                ]
+            })
         elif self.file_path.suffix in VISION_EXTENSIONS:
             with open(self.file_path, "rb") as f:
                 base64_image = base64.b64encode(f.read()).decode("utf-8")
-            self.chat.messages.append(
-                {"role": "user",
-                    "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/{self.file_path.suffix.replace('.', '')};base64,{base64_image}"}
-                        },
-                    ]}
-            )
+            self.chat.messages.append({
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": f"data:image/{self.file_path.suffix.replace('.', '')};base64,{base64_image}"}}
+                ]
+            })
 
     def __repr__(self) -> None:
         return f"TrackedFile(uploaded_file='{self.file_path.name}')"
