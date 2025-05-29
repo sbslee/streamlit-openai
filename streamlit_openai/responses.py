@@ -29,6 +29,7 @@ class Responses():
         placeholder: Optional[str] = "Your message",
         welcome_message: Optional[str] = None,
         message_files: Optional[List[str]] = None,
+        example_messages: Optional[List[dict]] = None,
         vector_store_ids: Optional[List[str]] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
@@ -40,12 +41,14 @@ class Responses():
         self.placeholder = placeholder
         self.welcome_message = welcome_message
         self.message_files = message_files
+        self.example_messages = example_messages
         self.vector_store_ids = vector_store_ids
         self.client = openai.OpenAI(api_key=self.api_key)
         self.input = []
         self.containers = []
         self.tools = []
         self.tracked_files = []
+        self.selected_example_message = None
 
         if self.vector_store_ids is not None:
             self.tools.append({"type": "file_search", "vector_store_ids": self.vector_store_ids})
@@ -96,7 +99,25 @@ class Responses():
                 Container(self, "user", blocks=[Block(self, "text", prompt)])
             )
             self.respond(prompt)
-
+        else:
+            if self.example_messages is not None:
+                if self.selected_example_message is None:
+                    selected_example_message = st.pills(
+                        "Examples",
+                        options=self.example_messages,
+                        label_visibility="collapsed"
+                    )
+                    if selected_example_message:
+                        self.selected_example_message = selected_example_message
+                        st.rerun()
+                else:
+                    with st.chat_message("user"):
+                            st.markdown(self.selected_example_message)
+                    self.containers.append(
+                        Container(self, "user", blocks=[Block(self, "text", self.selected_example_message)])
+                    )
+                    self.respond(self.selected_example_message)
+                    
 class TrackedFile():
     def __init__(
         self,
