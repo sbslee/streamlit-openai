@@ -29,6 +29,7 @@ class Responses():
         placeholder: Optional[str] = "Your message",
         welcome_message: Optional[str] = None,
         message_files: Optional[List[str]] = None,
+        vector_store_ids: Optional[List[str]] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.model = model
@@ -39,11 +40,15 @@ class Responses():
         self.placeholder = placeholder
         self.welcome_message = welcome_message
         self.message_files = message_files
+        self.vector_store_ids = vector_store_ids
         self.client = openai.OpenAI(api_key=self.api_key)
         self.input = []
         self.containers = []
         self.tools = []
         self.tracked_files = []
+
+        if self.vector_store_ids is not None:
+            self.tools.append({"type": "file_search", "vector_store_ids": self.vector_store_ids})
 
         # If a welcome message is provided, add it to the chat history
         if self.welcome_message is not None:
