@@ -3,7 +3,7 @@ import openai
 import os
 from pathlib import Path
 from typing import Optional, List
-from .utils import Container, Block
+from .utils import Container, Block, CustomFunction
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 DEVELOPER_MESSAGE = """
@@ -22,6 +22,7 @@ class Responses():
         self,
         api_key: Optional[str] = None,
         model: Optional[str] = "gpt-4o",
+        functions: Optional[List[CustomFunction]] = None,
         user_avatar: Optional[str] = None,
         assistant_avatar: Optional[str] = None,
         instructions: Optional[str] = None,
@@ -35,6 +36,7 @@ class Responses():
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.model = model
+        self.functions = functions
         self.user_avatar = user_avatar
         self.assistant_avatar = assistant_avatar
         self.instructions = "" if instructions is None else instructions
@@ -51,6 +53,16 @@ class Responses():
         self.tools = []
         self.tracked_files = []
         self.selected_example_message = None
+
+        if self.functions is not None:
+            self.tools = []
+            for function in self.functions:
+                self.tools.append({
+                    "type": "function",
+                    "name": function.definition["name"],
+                    "description": function.definition["description"],
+                    "parameters": function.definition["parameters"],
+                })
 
         if self.vector_store_ids is not None:
             self.tools.append({"type": "file_search", "vector_store_ids": self.vector_store_ids})
@@ -72,9 +84,7 @@ class Responses():
     def last_container(self) -> Optional[Container]:
         return self.containers[-1] if self.containers else None
 
-    def respond(self, prompt) -> None:
-        self.input.append({"role": "user", "content": prompt})
-        self.containers.append(Container(self, "assistant"))
+    def _respond1(self) -> None:
         events = self.client.responses.create(
             model=self.model,
             input=self.input,
@@ -89,6 +99,27 @@ class Responses():
                 self.last_container.update_and_stream("text", event.delta)
                 response += event.delta
         self.input.append({"role": "assistant", "content": response})
+
+    def _respond2(self) -> None:
+        events = self.client.responses.create(
+            model=self.model,
+            input=self.input,
+            instructions=DEVELOPER_MESSAGE+self.instructions,
+            temperature=self.temperature,
+            tools=self.tools,
+            stream=True,
+        )
+        response = ""        
+        for event in events:
+            print(event)
+
+    def respond(self, prompt) -> None:
+        self.input.append({"role": "user", "content": prompt})
+        self.containers.append(Container(self, "assistant"))
+        if self.functions is None:
+            self._respond1()
+        else:
+            self._respond2()
 
     def run(self) -> None:
         if self.info_message is not None:
