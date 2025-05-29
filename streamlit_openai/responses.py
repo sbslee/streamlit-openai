@@ -30,6 +30,7 @@ class Responses():
         welcome_message: Optional[str] = None,
         message_files: Optional[List[str]] = None,
         example_messages: Optional[List[dict]] = None,
+        info_message: Optional[str] = None,
         vector_store_ids: Optional[List[str]] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
@@ -42,6 +43,7 @@ class Responses():
         self.welcome_message = welcome_message
         self.message_files = message_files
         self.example_messages = example_messages
+        self.info_message = info_message
         self.vector_store_ids = vector_store_ids
         self.client = openai.OpenAI(api_key=self.api_key)
         self.input = []
@@ -89,6 +91,8 @@ class Responses():
         self.input.append({"role": "assistant", "content": response})
 
     def run(self) -> None:
+        if self.info_message is not None:
+            st.info(self.info_message)
         for container in self.containers:
             container.write()
         prompt = st.chat_input(placeholder=self.placeholder)
