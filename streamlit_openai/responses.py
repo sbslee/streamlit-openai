@@ -110,31 +110,46 @@ class Responses():
             stream=True,
         )
         response1 = ""
-        used_tools = {}
-        for event in events1:
-            if event.type == "response.output_text.delta":
-                self.last_container.update_and_stream("text", event.delta)
-                response1 += event.delta
-            elif event.type == "response.output_item.done" and event.item.type == "function_call":
-                used_tools[event.item.name] = event
-        self.input.append({"role": "assistant", "content": response1})
-        if used_tools:
-            for tool in used_tools:
+        tool_calls = {}
+        for event1 in events1:
+            if event1.type == "response.output_text.delta":
+                self.last_container.update_and_stream("text", event1.delta)
+                response1 += event1.delta
+            elif event1.type == "response.output_item.done" and event1.item.type == "function_call":
+                tool_calls[event1.item.name] = event1
+        if response1:
+            self.input.append({"role": "assistant", "content": response1})
+        if tool_calls:
+            for tool in tool_calls:
                 function = [x for x in self.functions if x.definition["name"] == tool][0]
-                result = function.function(**json.loads(used_tools[tool].arguments))
+                result = function.function(**json.loads(tool_calls[tool].item.arguments))
+                self.input.append({
+                    "type": "function_call",
+                    "id": tool_calls[tool].item.id,
+                    "call_id": tool_calls[tool].item.call_id,
+                    "name": tool_calls[tool].item.name,
+                    "arguments": tool_calls[tool].item.arguments,
+                })
                 self.input.append({
                     "type": "function_call_output",
-                    "call_id": used_tools[tool].call_id,
+                    "call_id": tool_calls[tool].item.call_id,
                     "output": str(result)
                 })
-        events2 = self.client.responses.create(
-            model=self.model,
-            input=self.input,
-            instructions=DEVELOPER_MESSAGE+self.instructions,
-            temperature=self.temperature,
-            tools=self.tools,
-            stream=True,
-        )
+            events2 = self.client.responses.create(
+                model=self.model,
+                input=self.input,
+                instructions=DEVELOPER_MESSAGE+self.instructions,
+                temperature=self.temperature,
+                tools=self.tools,
+                stream=True,
+            )
+            response2 = ""
+            for event2 in events2:
+                if event2.type == "response.output_text.delta":
+                    self.last_container.update_and_stream("text", event2.delta)
+                    response2 += event2.delta
+            if response2:
+                self.input.append({"role": "assistant", "content": response2})
 
     def respond(self, prompt) -> None:
         self.input.append({"role": "user", "content": prompt})
@@ -145,7 +160,6 @@ class Responses():
             self._respond2()
 
     def run(self) -> None:
-        print(self.input)
         if self.info_message is not None:
             st.info(self.info_message)
         for container in self.containers:
