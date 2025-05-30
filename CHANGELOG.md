@@ -1,6 +1,7 @@
 # CHANGELOG
 
 ## 0.0.10 (in development)
+* Add support for OpenAI's Responses API.
 
 ## 0.0.9 (2025-05-26)
 * Add new capabilities.
