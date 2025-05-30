@@ -3,16 +3,16 @@
 Welcome to the `streamlit-openai` package!
 
 This package provides a Streamlit component for building interactive chat 
-interfaces powered by OpenAI's API. It supports both the Chat Completions and 
-Assistants APIs, with built-in integration for OpenAI tools such as Function 
-Calling, File Search, Code Interpreter, Vision, and more.
+interfaces powered by OpenAI's API. It supports the Responses, Chat 
+Completions, and Assistants APIs, with built-in integration for OpenAI tools 
+such as function calling, file search, code interpreter, vision, and more.
 
 Below is a quick overview of the package's key features:
 
 - Easily create chat interfaces in Streamlit
-- Support for OpenAI’s Chat Completions and Assistants APIs
+- Support for OpenAI’s Responses, Chat Completions, and Assistants APIs
 - Real-time streaming responses
-- Integration with OpenAI tools: Function Calling, File Search, and Code Interpreter
+- Integration with OpenAI tools: function calling, file search, code interpreter, vision, and more
 - Vision capabilities for processing image inputs
 - File input support for richer interactions
 - Fully customizable chat interface, including model selection, temperature, and more
@@ -22,12 +22,14 @@ Below is a quick overview of the package's key features:
 - [Installation](#installation)
 - [Usage](#usage)
 - [Schematic Diagram](#schematic-diagram)
+- [Responses API](#responses-api)
+  - [Function Calling](#function-calling-1)
 - [Chat Completions API](#chat-completions-api)
-  - [Function Calling](#function-calling)
+  - [Function Calling](#function-calling-2)
   - [File Inputs](#file-inputs)
   - [Vision](#vision)
 - [Assistants API](#assistants-api)
-  - [Function Calling](#function-calling-1)
+  - [Function Calling](#function-calling-3)
   - [File Inputs](#file-inputs-1)
   - [Vision](#vision-1)
   - [File Search](#file-search)
@@ -44,7 +46,7 @@ Below is a quick overview of the package's key features:
   - [Info Message](#info-message)
   - [Input Box Placeholder](#input-box-placeholder)
   - [Chat History](#chat-history)
-  - [Function Calling](#function-calling-2)
+  - [Function Calling](#function-calling-4)
     - [Image Generation Example](#image-generation-example)
     - [Web Search Example](#web-search-example)
     - [Audio Transcription Example](#audio-transcription-example)
@@ -70,10 +72,13 @@ import streamlit as st
 import streamlit_openai
 
 if "chat" not in st.session_state:
-    # Use Chat Completions API
-    st.session_state.chat = streamlit_openai.ChatCompletions()
+    # Use the Responses API (recommended)
+    st.session_state.chat = streamlit_openai.Responses()
 
-    # Alternatively, use Assistants API
+    # Alternatively, use the Chat Completions API
+    # st.session_state.chat = streamlit_openai.ChatCompletions()
+
+    # The Assistants API is available but not recommended, as it's being deprecated
     # st.session_state.chat = streamlit_openai.Assistants()
 
 st.session_state.chat.run()
@@ -91,6 +96,62 @@ The following diagram illustrates the `Container` and `Block` classes used
 to create a chat interface:
 
 ![Schematic diagram](schematic_diagram.png)
+
+# Responses API
+The `Responses` class is a wrapper around OpenAI’s Responses API, which is 
+OpenAI's latest API for building chat interfaces. It replaces the older 
+Assistants API and provides a more streamlined and efficient way to create 
+chat interfaces. It supports all of OpenAI’s built-in tools, such as
+function calling, file search, code interpreter, vision, and more.
+
+## Function Calling
+
+You can define and call custom functions within a chat using OpenAI’s function 
+calling capabilities. To create a custom function, define a `CustomFunction` 
+class that takes two input arguments: `definition` (a dictionary describing 
+the function) and `function` (the actual callable method). Below is an example 
+of a custom function that generates an image based on a given prompt:
+
+```python
+import streamlit as st
+import openai
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    definition = {
+        "name": "generate_image",
+        "description": "Generate an image based on a given prompt.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "A description of the image to be generated.",
+                }
+            },
+            "required": ["prompt"]
+        }
+    }
+
+    def function(prompt):
+        client = openai.OpenAI()
+        response = client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1,
+        )
+        return response.data[0].url
+    
+    generate_image = streamlit_openai.utils.CustomFunction(definition, function)
+
+    st.session_state.chat = streamlit_openai.Responses(
+        functions=[generate_image],
+    )
+
+st.session_state.chat.run()
+```
 
 # Chat Completions API
 
