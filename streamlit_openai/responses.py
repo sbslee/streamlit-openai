@@ -18,6 +18,33 @@ FILE_SEARCH_EXTENSIONS = [
 ]
 
 class Responses():
+    """
+    A chat interface using OpenAI's Responses API.
+
+    This class manages a message history and streams assistant responses in a 
+    chat-like interface.
+
+    Attributes:
+        api_key (str): API key for OpenAI. If not provided, fetched from environment variable `OPENAI_API_KEY`.
+        model (str): The OpenAI model used for chat completions (default: "gpt-4o").
+        functions (list): Optional list of custom function tools to be attached to the assistant.
+        user_avatar (str): An emoji, image URL, or file path that represents the user.
+        assistant_avatar (str): An emoji, image URL, or file path that represents the assistant.
+        instructions (str): Instructions for the assistant.
+        temperature (float): Sampling temperature for the model (default: 1.0).
+        placeholder (str): Placeholder text for the chat input box (default: "Your message").
+        welcome_message (str): Welcome message from the assistant.
+        message_files (list): List of files to be uploaded to the assistant during initialization. Currently, only PDF files are supported.
+        example_messages (list): A list of example messages for the user to choose from.
+        info_message (str): Information message to be displayed in the chat.
+        vector_store_ids (list): List of vector store IDs for file search. Only used if file_search is enabled.
+        client (openai.OpenAI): The OpenAI client instance for API calls.
+        input (list): The chat history in OpenAI's expected message format.
+        containers (list): List to track the conversation history in structured form.
+        tools (list): A list of tools derived from function definitions for the assistant to call.
+        tracked_files (list): List of files being tracked for uploads/removals.
+        selected_example_message (str): The selected example message from the list of example messages.
+    """
     def __init__(
         self,
         api_key: Optional[str] = None,
@@ -85,6 +112,7 @@ class Responses():
         return self.containers[-1] if self.containers else None
 
     def _respond1(self) -> None:
+        """Streams a simple assistant response without tool usage."""
         events = self.client.responses.create(
             model=self.model,
             input=self.input,
@@ -101,6 +129,7 @@ class Responses():
         self.input.append({"role": "assistant", "content": response})
 
     def _respond2(self) -> None:
+        """Streams assistant response with support for tool calls."""
         events1 = self.client.responses.create(
             model=self.model,
             input=self.input,
@@ -152,6 +181,7 @@ class Responses():
                 self.input.append({"role": "assistant", "content": response2})
 
     def respond(self, prompt) -> None:
+        """Sends the user prompt to the assistant and streams the response."""
         self.input.append({"role": "user", "content": prompt})
         self.containers.append(Container(self, "assistant"))
         if self.functions is None:
@@ -160,6 +190,7 @@ class Responses():
             self._respond2()
 
     def run(self) -> None:
+        """Runs the main assistant loop: handles user messages."""
         if self.info_message is not None:
             st.info(self.info_message)
         for container in self.containers:
@@ -192,6 +223,17 @@ class Responses():
                     self.respond(self.selected_example_message)
                     
 class TrackedFile():
+    """
+    A class to represent a file that is tracked and managed within the OpenAI 
+    and Streamlit integration.
+
+    Attributes:
+        chat (ChatCompletions): The ChatCompletions instance that this file is associated with.
+        uploaded_file (UploadedFile): The UploadedFile object created by Streamlit.
+        message_file (str): The file path of the message file.
+        openai_file (File): The File object created by OpenAI.
+        file_path (Path): The path to the file on the local filesystem.
+    """
     def __init__(
         self,
         chat: Responses,
