@@ -1,6 +1,6 @@
 import streamlit as st
 import openai
-import os
+import os, json
 from pathlib import Path
 from typing import Optional, List
 from .utils import Container, Block, CustomFunction
@@ -101,7 +101,7 @@ class Responses():
         self.input.append({"role": "assistant", "content": response})
 
     def _respond2(self) -> None:
-        events = self.client.responses.create(
+        events1 = self.client.responses.create(
             model=self.model,
             input=self.input,
             instructions=DEVELOPER_MESSAGE+self.instructions,
@@ -109,9 +109,32 @@ class Responses():
             tools=self.tools,
             stream=True,
         )
-        response = ""        
-        for event in events:
-            print(event)
+        response1 = ""
+        used_tools = {}
+        for event in events1:
+            if event.type == "response.output_text.delta":
+                self.last_container.update_and_stream("text", event.delta)
+                response1 += event.delta
+            elif event.type == "response.output_item.done" and event.item.type == "function_call":
+                used_tools[event.item.name] = event
+        self.input.append({"role": "assistant", "content": response1})
+        if used_tools:
+            for tool in used_tools:
+                function = [x for x in self.functions if x.definition["name"] == tool][0]
+                result = function.function(**json.loads(used_tools[tool].arguments))
+                self.input.append({
+                    "type": "function_call_output",
+                    "call_id": used_tools[tool].call_id,
+                    "output": str(result)
+                })
+        events2 = self.client.responses.create(
+            model=self.model,
+            input=self.input,
+            instructions=DEVELOPER_MESSAGE+self.instructions,
+            temperature=self.temperature,
+            tools=self.tools,
+            stream=True,
+        )
 
     def respond(self, prompt) -> None:
         self.input.append({"role": "user", "content": prompt})
@@ -122,6 +145,7 @@ class Responses():
             self._respond2()
 
     def run(self) -> None:
+        print(self.input)
         if self.info_message is not None:
             st.info(self.info_message)
         for container in self.containers:
