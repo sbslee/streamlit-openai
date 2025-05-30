@@ -23,14 +23,15 @@ Below is a quick overview of the package's key features:
 - [Usage](#usage)
 - [Schematic Diagram](#schematic-diagram)
 - [Responses API](#responses-api)
-  - [Function Calling](#function-calling-1)
-- [Chat Completions API](#chat-completions-api)
-  - [Function Calling](#function-calling-2)
+  - [Function Calling](#function-calling)
   - [File Inputs](#file-inputs)
+- [Chat Completions API](#chat-completions-api)
+  - [Function Calling](#function-calling-1)
+  - [File Inputs](#file-inputs-1)
   - [Vision](#vision)
 - [Assistants API](#assistants-api)
-  - [Function Calling](#function-calling-3)
-  - [File Inputs](#file-inputs-1)
+  - [Function Calling](#function-calling-2)
+  - [File Inputs](#file-inputs-2)
   - [Vision](#vision-1)
   - [File Search](#file-search)
   - [Code Interpreter](#code-interpreter)
@@ -46,7 +47,7 @@ Below is a quick overview of the package's key features:
   - [Info Message](#info-message)
   - [Input Box Placeholder](#input-box-placeholder)
   - [Chat History](#chat-history)
-  - [Function Calling](#function-calling-4)
+  - [Function Calling](#function-calling-3)
     - [Image Generation Example](#image-generation-example)
     - [Web Search Example](#web-search-example)
     - [Audio Transcription Example](#audio-transcription-example)
@@ -151,6 +152,43 @@ if "chat" not in st.session_state:
     )
 
 st.session_state.chat.run()
+```
+
+## File Inputs
+
+The `Responses` class allows you to upload files and use them as context 
+for the assistant. 
+
+One way to provide file inputs is to use the `message_files` parameter when
+initializing the `Responses` class. Below is an example of how to
+upload a PDF file and use it as context for the assistant:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Responses(
+        message_files=["example.pdf"]
+    )
+
+st.session_state.chat.run()
+```
+
+Alternatively, you can use the `st.file_uploader` method to allow users to
+upload files dynamically. Below is an example of how to use the `st.file_uploader`
+method to upload a PDF file and use it as context for the assistant:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Responses()
+    
+uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=True)
+
+st.session_state.chat.run(uploaded_files=uploaded_files)
 ```
 
 # Chat Completions API
