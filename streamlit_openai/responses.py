@@ -1,8 +1,8 @@
 import streamlit as st
 import openai
-import os, json
+import os, json, tempfile
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Union, Literal
 from .utils import Container, Block, CustomFunction
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
@@ -27,6 +27,7 @@ class Responses():
     Attributes:
         api_key (str): API key for OpenAI. If not provided, fetched from environment variable `OPENAI_API_KEY`.
         model (str): The OpenAI model used for chat completions (default: "gpt-4o").
+        accept_file (bool or str): Whether the chat input should accept files (True, False, or "multiple") (default: "multiple").
         functions (list): Optional list of custom function tools to be attached to the assistant.
         user_avatar (str): An emoji, image URL, or file path that represents the user.
         assistant_avatar (str): An emoji, image URL, or file path that represents the assistant.
@@ -49,6 +50,7 @@ class Responses():
         self,
         api_key: Optional[str] = None,
         model: Optional[str] = "gpt-4o",
+        accept_file: Union[bool, Literal["multiple"]] = "multiple",
         functions: Optional[List[CustomFunction]] = None,
         user_avatar: Optional[str] = None,
         assistant_avatar: Optional[str] = None,
@@ -63,6 +65,7 @@ class Responses():
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.model = model
+        self.accept_file = accept_file
         self.functions = functions
         self.user_avatar = user_avatar
         self.assistant_avatar = assistant_avatar
@@ -79,6 +82,7 @@ class Responses():
         self.containers = []
         self.tools = []
         self.tracked_files = []
+        self.temp_dir = tempfile.TemporaryDirectory()
         self.selected_example_message = None
 
         if self.functions is not None:
@@ -189,19 +193,26 @@ class Responses():
         else:
             self._respond2()
 
-    def run(self) -> None:
+    def run(self, uploaded_files=None) -> None:
         """Runs the main assistant loop: handles user messages."""
         if self.info_message is not None:
             st.info(self.info_message)
         for container in self.containers:
             container.write()
-        prompt = st.chat_input(placeholder=self.placeholder)
-        if prompt:
+        chat_input = st.chat_input(placeholder=self.placeholder, accept_file=self.accept_file)
+        if chat_input is not None:
+            if self.accept_file in [True, "multiple"]:
+                prompt = chat_input.text
+                if chat_input.files:
+                    uploaded_files = chat_input.files
+            else:
+                prompt = chat_input
             with st.chat_message("user"):
                 st.markdown(prompt)
             self.containers.append(
                 Container(self, "user", blocks=[Block(self, "text", prompt)])
             )
+            self.handle_files(uploaded_files)
             self.respond(prompt)
         else:
             if self.example_messages is not None:
@@ -221,7 +232,19 @@ class Responses():
                         Container(self, "user", blocks=[Block(self, "text", self.selected_example_message)])
                     )
                     self.respond(self.selected_example_message)
-                    
+
+    def handle_files(self, uploaded_files) -> None:
+        """Handles uploaded files and manages tracked file lifecycle."""
+        # Handle file uploads
+        if uploaded_files is None:
+            return
+        else:
+            for uploaded_file in uploaded_files:
+                if uploaded_file.file_id in [x.uploaded_file.file_id for x in self.tracked_files]:
+                    continue
+                tracked_file = TrackedFile(self, uploaded_file=uploaded_file)
+                self.tracked_files.append(tracked_file)
+
 class TrackedFile():
     """
     A class to represent a file that is tracked and managed within the OpenAI 
