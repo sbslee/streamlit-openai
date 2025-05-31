@@ -204,7 +204,10 @@ class Responses():
             if self.accept_file in [True, "multiple"]:
                 prompt = chat_input.text
                 if chat_input.files:
-                    uploaded_files = chat_input.files
+                    if uploaded_files is None:
+                        uploaded_files = chat_input.files
+                    else:
+                        uploaded_files.extend(chat_input.files)
             else:
                 prompt = chat_input
             with st.chat_message("user"):
