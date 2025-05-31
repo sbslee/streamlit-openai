@@ -17,6 +17,8 @@ FILE_SEARCH_EXTENSIONS = [
     ".pptx", ".py", ".rb", ".sh", ".tex", ".ts", ".txt"
 ]
 
+VISION_EXTENSIONS = [".png", ".jpeg", ".jpg", ".webp", ".gif"]
+
 class Responses():
     """
     A chat interface using OpenAI's Responses API.
@@ -273,6 +275,7 @@ class TrackedFile():
         self.message_file = message_file
         self.openai_file = None
         self.vector_store = None
+        self.vision_file = None
 
         if self.uploaded_file is not None:
             self.file_path = Path(os.path.join(self.chat.temp_dir.name, self.uploaded_file.name))
@@ -312,6 +315,13 @@ class TrackedFile():
                         break
                 else:
                     self.chat.tools.append({"type": "file_search", "vector_store_ids": [self.vector_store.id]})
+
+        if self.file_path.suffix in VISION_EXTENSIONS:
+            self.vision_file = self.chat.client.files.create(file=self.file_path, purpose="vision")
+            self.chat.input.append({
+                "role": "user",
+                "content": [{"type": "input_image", "file_id": self.vision_file.id}]
+            })
 
     def __repr__(self) -> None:
         return f"TrackedFile(uploaded_file='{self.file_path.name}')"
