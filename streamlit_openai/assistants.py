@@ -1,6 +1,6 @@
 import streamlit as st
 import openai
-import os, json, re, tempfile
+import os, json, re, tempfile, zipfile
 from pathlib import Path
 from typing import Optional, List
 from .utils import Container, Block, CustomFunction
@@ -59,33 +59,35 @@ class Assistants():
         message_files (list): List of files to be uploaded to the assistant during initialization.
         example_messages (list): A list of example messages for the user to choose from.
         info_message (str): Information message to be displayed in the chat.
+        vector_store_ids (list): List of vector store IDs for file search. Only used if file_search is enabled.
+        history (str): File path to the chat history ZIP file. If provided, the chat history will be loaded from this file.
         containers (list): List to track the conversation history in structured form.
         tools (list): Tools (custom functions, file search, code interpreter) enabled for the assistant.
         tracked_files (list): List of files being tracked for uploads/removals.
         assistant (Assistant): The instantiated or retrieved OpenAI assistant.
         thread (Thread): The conversation thread associated with the assistant.
         selected_example_message (str): The selected example message from the list of example messages.
-        vector_store_ids (list): List of vector store IDs for file search. Only used if file_search is enabled.
     """
     def __init__(
-            self,
-            api_key: Optional[str] = None,
-            model: Optional[str] = "gpt-4o",
-            name: Optional[str] = None,
-            assistant_id: Optional[str] = None,
-            functions: Optional[List[CustomFunction]] = None,
-            file_search: bool = False,
-            code_interpreter: bool = False,
-            user_avatar: Optional[str] = None,
-            assistant_avatar: Optional[str] = None,
-            instructions: Optional[str] = None,
-            temperature: Optional[float] = 1.0,
-            placeholder: Optional[str] = "Your message",
-            welcome_message: Optional[str] = None,
-            message_files: Optional[List[str]] = None,
-            example_messages: Optional[List[dict]] = None,
-            info_message: Optional[str] = None,
-            vector_store_ids: Optional[List[str]] = None,
+        self,
+        api_key: Optional[str] = None,
+        model: Optional[str] = "gpt-4o",
+        name: Optional[str] = None,
+        assistant_id: Optional[str] = None,
+        functions: Optional[List[CustomFunction]] = None,
+        file_search: bool = False,
+        code_interpreter: bool = False,
+        user_avatar: Optional[str] = None,
+        assistant_avatar: Optional[str] = None,
+        instructions: Optional[str] = None,
+        temperature: Optional[float] = 1.0,
+        placeholder: Optional[str] = "Your message",
+        welcome_message: Optional[str] = None,
+        message_files: Optional[List[str]] = None,
+        example_messages: Optional[List[dict]] = None,
+        info_message: Optional[str] = None,
+        vector_store_ids: Optional[List[str]] = None,
+        history: Optional[str] = None,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.client = openai.OpenAI(api_key=self.api_key)
@@ -104,6 +106,8 @@ class Assistants():
         self.message_files = message_files
         self.example_messages = example_messages
         self.info_message = info_message
+        self.vector_store_ids = vector_store_ids
+        self.history = history
         self.assistant_avatar = assistant_avatar
         self.assistant_id = assistant_id
         self.assistant = None
@@ -111,7 +115,6 @@ class Assistants():
         self.download_button_key = 0
         self.temp_dir = tempfile.TemporaryDirectory()
         self.selected_example_message = None
-        self.vector_store_ids = vector_store_ids
 
         if self.file_search or self.code_interpreter or self.functions is not None:
             self.tools = []
@@ -159,6 +162,30 @@ class Assistants():
                 tracked_file = TrackedFile(self, message_file=message_file)
                 self.tracked_files.append(tracked_file)
 
+        # If chat history file is provided, load the chat history
+        if self.history is not None:
+            if not self.history.endswith(".zip"):
+                raise ValueError("History file must end with .zip")
+            with tempfile.TemporaryDirectory() as t:
+                with zipfile.ZipFile(self.history, "r") as f:
+                    f.extractall(t)
+                with open(f"{t}/{self.history.replace('.zip', '')}/data.json", "r") as f:
+                    data = json.load(f)
+                    if data["class"] != self.__class__.__name__:
+                        raise ValueError(f"Expected class {self.__class__.__name__}, but got {data['class']}")
+                    for container in data["containers"]:
+                        self.containers.append(Container(
+                            self,
+                            container["role"],
+                            blocks=[Block(self, block["category"], block["content"]) for block in container["blocks"]]
+                        ))
+                        for block in container["blocks"]:
+                            self.client.beta.threads.messages.create(
+                                thread_id=self.thread.id,
+                                role=container["role"],
+                                content=block["content"],
+                            )
+
     @property
     def last_container(self) -> Optional[Container]:
         """Returns the last container or None if empty."""
@@ -201,18 +228,19 @@ class Assistants():
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
         if not self.is_thread_active():
-            self.containers.append(Container(self, "assistant"))
             self.client.beta.threads.messages.create(
                 thread_id=self.thread.id,
                 role="user",
                 content=prompt,
             )
-            with self.client.beta.threads.runs.stream(
-                thread_id=self.thread.id,
-                event_handler=AssistantEventHandler(self),
-                assistant_id=self.assistant.id,
-            ) as stream:
-                stream.until_done()
+            self.containers.append(Container(self, "assistant"))
+            if not self.is_thread_active():
+                with self.client.beta.threads.runs.stream(
+                    thread_id=self.thread.id,
+                    event_handler=AssistantEventHandler(self),
+                    assistant_id=self.assistant.id,
+                ) as stream:
+                    stream.until_done()
         
     def handle_files(self, uploaded_files) -> None:
         """Handles uploaded files and manages tracked file lifecycle."""
@@ -239,15 +267,23 @@ class Assistants():
                     continue
 
     def save(self, file_path: str) -> None:
-        """Saves the chat history to a JSON file."""
-        if not file_path.endswith(".json"):
-            raise ValueError("File path must end with .json")
+        """Saves the chat history to a ZIP file."""
+        if not file_path.endswith(".zip"):
+            raise ValueError("File path must end with .zip")
         data = {
             "class": self.__class__.__name__,
             "containers": [container.to_dict() for container in self.containers],
         }
-        with open(file_path, "w") as f:
-            json.dump(data, f, indent=4)
+        with tempfile.TemporaryDirectory() as t:
+            with open(f"{t}/data.json", "w") as f:
+                json.dump(data, f, indent=4)
+            with zipfile.ZipFile(file_path, "w", zipfile.ZIP_DEFLATED) as f:
+                for root, dirs, files in os.walk(t):
+                    for file in files:
+                        f.write(
+                            os.path.join(root, file),
+                            arcname=os.path.join(os.path.basename(file_path.replace(".zip", "")), file)
+                        )
 
     def is_thread_active(self) -> bool:
         """Checks if the thread is active."""
@@ -256,6 +292,7 @@ class Assistants():
         while has_more:
             response = self.client.beta.threads.runs.list(
                 thread_id=self.thread.id,
+                limit=100,
                 after=after
             )
             for run in response.data:
@@ -280,8 +317,8 @@ class AssistantEventHandler(openai.AssistantEventHandler):
         chat (Assistants): The Assistants instance that this event handler is associated with.
     """
     def __init__(
-            self,
-            chat: Assistants,
+        self,
+        chat: Assistants,
     ) -> None:
         super().__init__()
         self.chat = chat
@@ -295,7 +332,7 @@ class AssistantEventHandler(openai.AssistantEventHandler):
                         "download",
                         self.chat.client.files.retrieve(annotation.file_path.file_id)
                     )
-        if delta.value is not None:
+        if delta.value is not None and delta.value:
             self.chat.last_container.update_and_stream("text", delta.value)
             self.chat.last_container.last_block.content = re.sub(r"【.*?】", "", self.chat.last_container.last_block.content)
             self.chat.last_container.last_block.content = re.sub(r"\[.*?\]\(sandbox:/mnt/data/.*?\)", "", self.chat.last_container.last_block.content)
@@ -353,10 +390,10 @@ class TrackedFile():
         file_path (Path): The path to the file on the local filesystem.
     """
     def __init__(
-            self,
-            chat: Assistants,
-            uploaded_file: Optional[UploadedFile] = None,
-            message_file: Optional[str] = None,
+        self,
+        chat: Assistants,
+        uploaded_file: Optional[UploadedFile] = None,
+        message_file: Optional[str] = None,
     ) -> None:
         if (uploaded_file is None) == (message_file is None):
             raise ValueError("Exactly one of 'uploaded_file' or 'message_file' must be provided.")

@@ -3,19 +3,20 @@
 Welcome to the `streamlit-openai` package!
 
 This package provides a Streamlit component for building interactive chat 
-interfaces powered by OpenAI's API. It supports both the Chat Completions and 
-Assistants APIs, with built-in integration for OpenAI tools such as Function 
-Calling, File Search, Code Interpreter, Vision, and more.
+interfaces powered by OpenAI's API. It supports the Chat Completions and 
+Assistants APIs, with built-in integration for OpenAI tools such as function 
+calling, file search, code interpreter, vision, and more.
 
 Below is a quick overview of the package's key features:
 
 - Easily create chat interfaces in Streamlit
 - Support for OpenAI’s Chat Completions and Assistants APIs
 - Real-time streaming responses
-- Integration with OpenAI tools: Function Calling, File Search, and Code Interpreter
+- Integration with OpenAI tools: function calling, file search, code interpreter, vision, and more
 - Vision capabilities for processing image inputs
 - File input support for richer interactions
 - Fully customizable chat interface, including model selection, temperature, and more
+- Support for saving and retrieving chat history
 
 # Table of Contents
 - [Installation](#installation)
@@ -42,6 +43,7 @@ Below is a quick overview of the package's key features:
   - [Example Messages](#example-messages)
   - [Info Message](#info-message)
   - [Input Box Placeholder](#input-box-placeholder)
+  - [Chat History](#chat-history)
   - [Function Calling](#function-calling-2)
     - [Image Generation Example](#image-generation-example)
     - [Web Search Example](#web-search-example)
@@ -547,6 +549,41 @@ if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.ChatCompletions(
         placeholder="Type your message here..."
     )
+
+st.session_state.chat.run()
+```
+
+## Chat History
+You can save chat history to allow users to continue conversations across 
+different sessions. The `ChatCompletions` and `Assistants` classes include a 
+`save` method for this purpose. The chat history will be saved as a ZIP file. 
+Note that currently, only text content is saved -- other file types (e.g., 
+images) are not supported. Below is an example of how to save a chat history:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.ChatCompletions()
+    
+with st.sidebar:
+    if st.button("Save"):
+        st.session_state.chat.save("history.zip")
+
+st.session_state.chat.run()
+```
+
+After saving the chat history, you can load it in a new session by passing the 
+history parameter when initializing the `ChatCompletions` or `Assistants` 
+class. Below is an example of how to load a chat history:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.ChatCompletions(history="history.zip")
 
 st.session_state.chat.run()
 ```
