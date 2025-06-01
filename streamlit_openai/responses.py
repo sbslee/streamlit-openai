@@ -11,6 +11,14 @@ DEVELOPER_MESSAGE = """
 - Wrap all mathematical expressions and LaTeX terms in `$...$` for inline math and `$$...$$` for display math.
 """
 
+CODE_INTERPRETER_EXTENSIONS = [
+    ".c", ".cs", ".cpp", ".csv", ".doc", ".docx", ".html", 
+    ".java", ".json", ".md", ".pdf", ".php", ".pptx", ".py", 
+    ".rb", ".tex", ".txt", ".css", ".js", ".sh", ".ts", ".csv", 
+    ".jpeg", ".jpg", ".gif", ".pkl", ".png", ".tar", ".xlsx", 
+    ".xml", ".zip"
+]
+
 FILE_SEARCH_EXTENSIONS = [
     ".c", ".cpp", ".cs", ".css", ".doc", ".docx", ".go", 
     ".html", ".java", ".js", ".json", ".md", ".pdf", ".php", 
@@ -41,6 +49,7 @@ class Responses():
         example_messages (list): A list of example messages for the user to choose from.
         info_message (str): Information message to be displayed in the chat.
         vector_store_ids (list): List of vector store IDs for file search. Only used if file_search is enabled.
+        allow_code_interpreter (bool): Whether to allow code interpreter functionality (default: True).
         client (openai.OpenAI): The OpenAI client instance for API calls.
         input (list): The chat history in OpenAI's expected message format.
         containers (list): List to track the conversation history in structured form.
@@ -64,6 +73,7 @@ class Responses():
         example_messages: Optional[List[dict]] = None,
         info_message: Optional[str] = None,
         vector_store_ids: Optional[List[str]] = None,
+        allow_code_interpreter: Optional[bool] = True,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.model = model
@@ -79,6 +89,7 @@ class Responses():
         self.example_messages = example_messages
         self.info_message = info_message
         self.vector_store_ids = vector_store_ids
+        self.allow_code_interpreter = allow_code_interpreter
         self.client = openai.OpenAI(api_key=self.api_key)
         self.input = []
         self.containers = []
@@ -86,6 +97,9 @@ class Responses():
         self.tracked_files = []
         self.temp_dir = tempfile.TemporaryDirectory()
         self.selected_example_message = None
+
+        if self.allow_code_interpreter:
+            self.tools.append({"type": "code_interpreter", "container": {"type": "auto"}})
 
         if self.functions is not None:
             self.tools = []
@@ -117,25 +131,10 @@ class Responses():
     def last_container(self) -> Optional[Container]:
         return self.containers[-1] if self.containers else None
 
-    def _respond1(self) -> None:
-        """Streams a simple assistant response without tool usage."""
-        events = self.client.responses.create(
-            model=self.model,
-            input=self.input,
-            instructions=DEVELOPER_MESSAGE+self.instructions,
-            temperature=self.temperature,
-            tools=self.tools,
-            stream=True,
-        )
-        response = ""
-        for event in events:
-            if event.type == "response.output_text.delta":
-                self.last_container.update_and_stream("text", event.delta)
-                response += event.delta
-        self.input.append({"role": "assistant", "content": response})
-
-    def _respond2(self) -> None:
-        """Streams assistant response with support for tool calls."""
+    def respond(self, prompt) -> None:
+        """Sends the user prompt to the assistant and streams the response."""
+        self.input.append({"role": "user", "content": prompt})
+        self.containers.append(Container(self, "assistant"))
         events1 = self.client.responses.create(
             model=self.model,
             input=self.input,
@@ -150,8 +149,29 @@ class Responses():
             if event1.type == "response.output_text.delta":
                 self.last_container.update_and_stream("text", event1.delta)
                 response1 += event1.delta
-            elif event1.type == "response.output_item.done" and event1.item.type == "function_call":
-                tool_calls[event1.item.name] = event1
+            elif event1.type == "response.code_interpreter_call_code.delta":
+                self.last_container.update_and_stream("code", event1.delta)
+            elif event1.type == "response.output_item.done":   
+                if event1.item.type == "function_call":
+                    tool_calls[event1.item.name] = event1
+                elif event1.item.content is not None:
+                    ###########################################
+                    ## OpenAI's Python SDK is not ready yet. ##
+                    ###########################################
+                    print(event1.item.content[0].annotations[0].file_id)
+                    print(event1.item.content[0].annotations[0].container_id)
+                    # result = self.client.containers.files.content.retrieve(
+                    #     file_id=event1.item.content[0].annotations[0].file_id,
+                    #     container_id=event1.item.content[0].annotations[0].container_id
+                    # )
+                    result = self.client.containers.files.content.with_raw_response.retrieve(
+                        file_id=event1.item.content[0].annotations[0].file_id,
+                        container_id=event1.item.content[0].annotations[0].container_id
+                    )
+                    print(result) # Keeps returnnig None
+                # elif event1.type == "response.output_item.done" and event1.item.content[0].annotations[0].type == "container_file_citation":
+                    # print(event1.item.content[0].annotations[0].file_id)
+                    # print(event1.item.content[0].)
         if response1:
             self.input.append({"role": "assistant", "content": response1})
         if tool_calls:
@@ -185,15 +205,6 @@ class Responses():
                     response2 += event2.delta
             if response2:
                 self.input.append({"role": "assistant", "content": response2})
-
-    def respond(self, prompt) -> None:
-        """Sends the user prompt to the assistant and streams the response."""
-        self.input.append({"role": "user", "content": prompt})
-        self.containers.append(Container(self, "assistant"))
-        if self.functions is None:
-            self._respond1()
-        else:
-            self._respond2()
 
     def run(self, uploaded_files=None) -> None:
         """Runs the main assistant loop: handles user messages."""
