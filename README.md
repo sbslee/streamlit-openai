@@ -3,14 +3,14 @@
 Welcome to the `streamlit-openai` package!
 
 This package provides a Streamlit component for building interactive chat 
-interfaces powered by OpenAI's API. It supports the Chat Completions and 
-Assistants APIs, with built-in integration for OpenAI tools such as function 
-calling, file search, code interpreter, vision, and more.
+interfaces powered by OpenAI's API. It supports the Responses, Chat 
+Completions, and Assistants APIs, with built-in integration for OpenAI tools 
+such as function calling, file search, code interpreter, vision, and more.
 
 Below is a quick overview of the package's key features:
 
 - Easily create chat interfaces in Streamlit
-- Support for OpenAI’s Chat Completions and Assistants APIs
+- Support for OpenAI’s Responses, Chat Completions, and Assistants APIs
 - Real-time streaming responses
 - Integration with OpenAI tools: function calling, file search, code interpreter, vision, and more
 - Vision capabilities for processing image inputs
@@ -22,13 +22,16 @@ Below is a quick overview of the package's key features:
 - [Installation](#installation)
 - [Usage](#usage)
 - [Schematic Diagram](#schematic-diagram)
-- [Chat Completions API](#chat-completions-api)
+- [Responses API](#responses-api)
   - [Function Calling](#function-calling)
   - [File Inputs](#file-inputs)
-  - [Vision](#vision)
-- [Assistants API](#assistants-api)
+- [Chat Completions API](#chat-completions-api)
   - [Function Calling](#function-calling-1)
   - [File Inputs](#file-inputs-1)
+  - [Vision](#vision)
+- [Assistants API](#assistants-api)
+  - [Function Calling](#function-calling-2)
+  - [File Inputs](#file-inputs-2)
   - [Vision](#vision-1)
   - [File Search](#file-search)
   - [Code Interpreter](#code-interpreter)
@@ -44,7 +47,7 @@ Below is a quick overview of the package's key features:
   - [Info Message](#info-message)
   - [Input Box Placeholder](#input-box-placeholder)
   - [Chat History](#chat-history)
-  - [Function Calling](#function-calling-2)
+  - [Function Calling](#function-calling-3)
     - [Image Generation Example](#image-generation-example)
     - [Web Search Example](#web-search-example)
     - [Audio Transcription Example](#audio-transcription-example)
@@ -70,10 +73,13 @@ import streamlit as st
 import streamlit_openai
 
 if "chat" not in st.session_state:
-    # Use Chat Completions API
-    st.session_state.chat = streamlit_openai.ChatCompletions()
+    # Use the Responses API (recommended)
+    st.session_state.chat = streamlit_openai.Responses()
 
-    # Alternatively, use Assistants API
+    # Alternatively, use the Chat Completions API
+    # st.session_state.chat = streamlit_openai.ChatCompletions()
+
+    # The Assistants API is available but not recommended, as it's being deprecated
     # st.session_state.chat = streamlit_openai.Assistants()
 
 st.session_state.chat.run()
@@ -91,6 +97,99 @@ The following diagram illustrates the `Container` and `Block` classes used
 to create a chat interface:
 
 ![Schematic diagram](schematic_diagram.png)
+
+# Responses API
+The `Responses` class is a wrapper around OpenAI’s Responses API, which is 
+OpenAI's latest API for building chat interfaces. It replaces the older 
+Assistants API and provides a more streamlined and efficient way to create 
+chat interfaces. It supports all of OpenAI’s built-in tools, such as
+function calling, file search, code interpreter, vision, and more.
+
+## Function Calling
+
+You can define and call custom functions within a chat using OpenAI’s function 
+calling capabilities. To create a custom function, define a `CustomFunction` 
+class that takes two input arguments: `definition` (a dictionary describing 
+the function) and `function` (the actual callable method). Below is an example 
+of a custom function that generates an image based on a given prompt:
+
+```python
+import streamlit as st
+import openai
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    definition = {
+        "name": "generate_image",
+        "description": "Generate an image based on a given prompt.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "A description of the image to be generated.",
+                }
+            },
+            "required": ["prompt"]
+        }
+    }
+
+    def function(prompt):
+        client = openai.OpenAI()
+        response = client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1,
+        )
+        return response.data[0].url
+    
+    generate_image = streamlit_openai.utils.CustomFunction(definition, function)
+
+    st.session_state.chat = streamlit_openai.Responses(
+        functions=[generate_image],
+    )
+
+st.session_state.chat.run()
+```
+
+## File Inputs
+
+The `Responses` class allows you to upload files and use them as context 
+for the assistant. 
+
+One way to provide file inputs is to use the `message_files` parameter when
+initializing the `Responses` class. Below is an example of how to
+upload a PDF file and use it as context for the assistant:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Responses(
+        message_files=["example.pdf"]
+    )
+
+st.session_state.chat.run()
+```
+
+Alternatively, you can use the `st.file_uploader` method to allow users to
+upload files dynamically. Below is an example of how to use the `st.file_uploader`
+method to upload a PDF file and use it as context for the assistant:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Responses()
+    
+uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=True)
+
+st.session_state.chat.run(uploaded_files=uploaded_files)
+```
 
 # Chat Completions API
 
