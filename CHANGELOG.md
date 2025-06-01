@@ -1,5 +1,7 @@
 # CHANGELOG
 
+## 0.1.0 (in development)
+
 ## 0.0.10 (2025-06-02)
 * Add new capabilities.
 
