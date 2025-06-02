@@ -21,7 +21,9 @@ Here’s a quick overview of the package’s key features:
 - [Features](#features)
   - [Function Calling](#function-calling)
   - [File Inputs](#file-inputs)
+    - [Message Attachments](#message-attachments)
     - [Static File Upload](#static-file-upload)
+    - [File Uploader Widget](#file-uploader-widget)
 - [Responses API](#responses-api)
   - [Function Calling](#function-calling)
 - [Chat Completions API](#chat-completions-api)
@@ -143,6 +145,16 @@ st.session_state.chat.run()
 You can provide file inputs to the chat interface, allowing the assistant
 to access and utilize the content of the files during the conversation.
 
+### Message Attachments
+
+You can upload files in the chat by clicking the attachment icon or dragging 
+files into the input box. Uploaded files are sent with your message, and the 
+assistant can access their content.
+
+By default, the `Chat` class allows multiple file uploads 
+(`accept_file="multiple"`). To allow only one file, set `accept_file=True`. To 
+disable uploads entirely, set `accept_file=False`.
+
 ### Static File Upload
 
 You can upload files statically by providing the `uploaded_files` parameter
@@ -161,6 +173,8 @@ if "chat" not in st.session_state:
 
 st.session_state.chat.run()
 ```
+
+### File Uploader Widget
 
 Alternatively, you can use the `st.file_uploader` method to allow users to
 upload files dynamically. Below is an example of how to use the `st.file_uploader`
