@@ -18,6 +18,9 @@ Here’s a quick overview of the package’s key features:
 - [Installation](#installation)
 - [Usage](#usage)
 - [Schematic Diagram](#schematic-diagram)
+- [Features](#features)
+  - [Function Calling](#function-calling)
+  - [File Inputs](#file-inputs)
 - [Responses API](#responses-api)
   - [Function Calling](#function-calling)
   - [File Inputs](#file-inputs)
@@ -87,12 +90,7 @@ to create a chat interface:
 
 ![Schematic diagram](schematic_diagram.png)
 
-# Responses API
-The `Responses` class is a wrapper around OpenAI’s Responses API, which is 
-OpenAI's latest API for building chat interfaces. It replaces the older 
-Assistants API and provides a more streamlined and efficient way to create 
-chat interfaces. It supports all of OpenAI’s built-in tools, such as
-function calling, file search, code interpreter, vision, and more.
+# Features
 
 ## Function Calling
 
@@ -174,104 +172,6 @@ import streamlit_openai
 
 if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.Responses()
-    
-uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=True)
-
-st.session_state.chat.run(uploaded_files=uploaded_files)
-```
-
-# Chat Completions API
-
-The `ChatCompletions` class is a wrapper around OpenAI’s Chat Completions API,
-which allows you to create a chat interface with a single assistant. The
-`ChatCompletions` class provides a simple interface for sending messages to
-the assistant and receiving responses. It also supports OpenAI’s built-in
-tools, such as file input and function calling.
-
-## Function Calling
-
-You can define and call custom functions within a chat using OpenAI’s function 
-calling capabilities. To create a custom function, define a `CustomFunction` 
-class that takes two input arguments: `definition` (a dictionary describing 
-the function) and `function` (the actual callable method). Below is an example 
-of a custom function that generates an image based on a given prompt:
-
-```python
-import streamlit as st
-import openai
-import streamlit_openai
-
-if "chat" not in st.session_state:
-    definition = {
-        "name": "generate_image",
-        "description": "Generate an image based on a given prompt.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "prompt": {
-                    "type": "string",
-                    "description": "A description of the image to be generated.",
-                }
-            },
-            "required": ["prompt"]
-        }
-    }
-
-    def function(prompt):
-        client = openai.OpenAI()
-        response = client.images.generate(
-            model="dall-e-3",
-            prompt=prompt,
-            size="1024x1024",
-            quality="standard",
-            n=1,
-        )
-        return response.data[0].url
-    
-    generate_image = streamlit_openai.utils.CustomFunction(definition, function)
-
-    st.session_state.chat = streamlit_openai.ChatCompletions(
-        functions=[generate_image],
-    )
-
-st.session_state.chat.run()
-```
-
-## File Inputs
-
-The `ChatCompletions` class allows you to upload files and use them as context 
-for the assistant. 
-
-Currently, the only natively supported file type is PDF. However, it is 
-possible to upload other file types by providing a custom function to handle 
-them.
-
-One way to provide file inputs is to use the `message_files` parameter when
-initializing the `ChatCompletions` class. Below is an example of how to
-upload a PDF file and use it as context for the assistant:
-
-```python
-import streamlit as st
-import streamlit_openai
-
-if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.ChatCompletions(
-        message_files=["example.pdf"]
-    )
-
-st.session_state.chat.run()
-```
-
-Alternatively, you can use the `st.file_uploader` method to allow users to
-upload files dynamically. Below is an example of how to use the `st.file_uploader`
-method to upload a PDF file and use it as context for the assistant:
-
-```python
-import streamlit as st
-import streamlit_openai
-
-if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.ChatCompletions()
     
 uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=True)
 
