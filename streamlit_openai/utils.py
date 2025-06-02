@@ -181,23 +181,25 @@ class Container():
 
 class CustomFunction():
     """
-    Represents a user-defined function and its corresponding OpenAI function 
-    definition.
-
-    This class wraps a callable Python function with metadata in the format 
-    expected by OpenAI's function-calling tools.
+    Represents a custom function that can be invoked by the OpenAI API.
 
     Attributes:
-        definition (dict): The OpenAI-compatible function schema/definition.
-        function (Callable): The actual Python function to be executed when invoked.
+        name (str): The name of the function.
+        description (str): A brief description of what the function does.
+        parameters (Dict[str, Any]): The parameters required by the function.
+        handler (Callable): The actual Python function to be executed.
     """
     def __init__(
             self,
-            definition: Dict[str, Any],
-            function: Callable,
+            name: str,
+            description: str,
+            parameters: Dict[str, Any],
+            handler: Callable,
     ) -> None:
-        self.definition = definition
-        self.function = function
+        self.name = name
+        self.description = description
+        self.parameters = parameters
+        self.handler = handler
 
-    def __repr__(self) -> None:
-        return f"CustomFunction(definition='{self.definition}')"
+    def __repr__(self) -> str:
+        return f"CustomFunction(definition='{self.name}')"

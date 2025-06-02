@@ -102,13 +102,12 @@ class Chat():
             self.tools.append({"type": "code_interpreter", "container": {"type": "auto"}})
 
         if self.functions is not None:
-            self.tools = []
             for function in self.functions:
                 self.tools.append({
                     "type": "function",
-                    "name": function.definition["name"],
-                    "description": function.definition["description"],
-                    "parameters": function.definition["parameters"],
+                    "name": function.name,
+                    "description": function.description,
+                    "parameters": function.parameters,
                 })
 
         if self.vector_store_ids is not None:
@@ -176,8 +175,8 @@ class Chat():
             self.input.append({"role": "assistant", "content": response1})
         if tool_calls:
             for tool in tool_calls:
-                function = [x for x in self.functions if x.definition["name"] == tool][0]
-                result = function.function(**json.loads(tool_calls[tool].item.arguments))
+                function = [x for x in self.functions if x.name == tool][0]
+                result = function.handler(**json.loads(tool_calls[tool].item.arguments))
                 self.input.append({
                     "type": "function_call",
                     "id": tool_calls[tool].item.id,

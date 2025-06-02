@@ -106,22 +106,7 @@ import openai
 import streamlit_openai
 
 if "chat" not in st.session_state:
-    definition = {
-        "name": "generate_image",
-        "description": "Generate an image based on a given prompt.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "prompt": {
-                    "type": "string",
-                    "description": "A description of the image to be generated.",
-                }
-            },
-            "required": ["prompt"]
-        }
-    }
-
-    def function(prompt):
+    def handler(prompt):
         client = openai.OpenAI()
         response = client.images.generate(
             model="dall-e-3",
@@ -132,11 +117,23 @@ if "chat" not in st.session_state:
         )
         return response.data[0].url
     
-    generate_image = streamlit_openai.utils.CustomFunction(definition, function)
-
-    st.session_state.chat = streamlit_openai.Responses(
-        functions=[generate_image],
+    generate_image = streamlit_openai.utils.CustomFunction(
+        name="generate_image",
+        description="Generate an image based on a given prompt.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "A description of the image to be generated.",
+                }
+            },
+            "required": ["prompt"]
+        },
+        handler=handler
     )
+
+    st.session_state.chat = streamlit_openai.Chat(functions=[generate_image])
 
 st.session_state.chat.run()
 ```
