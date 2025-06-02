@@ -268,7 +268,7 @@ class TrackedFile():
     Attributes:
         chat (ChatCompletions): The ChatCompletions instance that this file is associated with.
         uploaded_file (UploadedFile or str): An UploadedFile object or a string representing the file path.
-        openai_file (File): The File object created by OpenAI.
+        data (dict): A dictionary to store additional data related to the file.
         file_path (Path): The path to the file on the local filesystem.
     """
     def __init__(
@@ -278,9 +278,8 @@ class TrackedFile():
     ) -> None:
         self.chat = chat
         self.uploaded_file = uploaded_file
-        self.openai_file = None
-        self.vector_store = None
-        self.vision_file = None
+        self.data = {}
+        self.file_path = None
 
         if isinstance(self.uploaded_file, str):
             self.file_path = Path(self.uploaded_file).resolve()
@@ -298,23 +297,23 @@ class TrackedFile():
 
         if self.file_path.suffix in FILE_SEARCH_EXTENSIONS:
             with open(self.file_path, "rb") as f:
-                self.openai_file = self.chat.client.files.create(file=f, purpose="assistants")
-            self.vector_store = self.chat.client.vector_stores.create()
+                openai_file = self.chat.client.files.create(file=f, purpose="assistants")
+            vector_store = self.chat.client.vector_stores.create()
             self.chat.client.vector_stores.files.create(
-                vector_store_id=self.vector_store.id,
-                file_id=self.openai_file.id
+                vector_store_id=vector_store.id,
+                file_id=openai_file.id
             )
             result = self.chat.client.vector_stores.files.retrieve(
-                vector_store_id=self.vector_store.id,
-                file_id=self.openai_file.id,
+                vector_store_id=vector_store.id,
+                file_id=openai_file.id,
             )
             while result.status != "completed":
                 result = self.chat.client.vector_stores.files.retrieve(
-                    vector_store_id=self.vector_store.id,
-                    file_id=self.openai_file.id,
+                    vector_store_id=vector_store.id,
+                    file_id=openai_file.id,
                 )
             if not self.chat.tools:
-                self.chat.tools.append({"type": "file_search", "vector_store_ids": [self.vector_store.id]})
+                self.chat.tools.append({"type": "file_search", "vector_store_ids": [vector_store.id]})
             else:
                 for tool in self.chat.tools:
                     if tool["type"] == "file_search":
@@ -322,14 +321,16 @@ class TrackedFile():
                             tool["vector_store_ids"].append(self.vector_store.id)
                         break
                 else:
-                    self.chat.tools.append({"type": "file_search", "vector_store_ids": [self.vector_store.id]})
+                    self.chat.tools.append({"type": "file_search", "vector_store_ids": [vector_store.id]})
+            self.data["file_search"] = {"file_id": openai_file.id, "vector_store_id": vector_store.id}
 
         if self.file_path.suffix in VISION_EXTENSIONS:
-            self.vision_file = self.chat.client.files.create(file=self.file_path, purpose="vision")
+            openai_file = self.chat.client.files.create(file=self.file_path, purpose="vision")
             self.chat.input.append({
                 "role": "user",
-                "content": [{"type": "input_image", "file_id": self.vision_file.id}]
+                "content": [{"type": "input_image", "file_id": openai_file.id}]
             })
+            self.data["vision"] = {"file_id": openai_file.id}
 
     def __repr__(self) -> None:
         return f"TrackedFile(uploaded_file='{self.file_path.name}')"

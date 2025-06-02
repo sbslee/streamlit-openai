@@ -24,8 +24,6 @@ Here’s a quick overview of the package’s key features:
     - [Message Attachments](#message-attachments)
     - [Static File Upload](#static-file-upload)
     - [File Uploader Widget](#file-uploader-widget)
-- [Responses API](#responses-api)
-  - [Function Calling](#function-calling)
 - [Chat Completions API](#chat-completions-api)
   - [Function Calling](#function-calling-1)
   - [Vision](#vision)
@@ -205,17 +203,15 @@ st.session_state.chat.run(uploaded_files=uploaded_files)
 ```
 
 ## Vision
-The `ChatCompletions` class supports OpenAI’s Vision capabilities, allowing you
-to process image inputs in the chat interface. You can upload images as part of
-the chat messages, and the assistant can analyze and respond to them. Below is
-an example of how to use the Vision capabilities in a chat interface:
+The `Chat` class supports OpenAI's vision capabilities, enabling image input 
+processing in chat. Here's an example:
 
 ```python
 import streamlit as st
 import streamlit_openai
 
 if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.ChatCompletions(
+    st.session_state.chat = streamlit_openai.Chat(
         message_files=["example.jpeg"]
     )
 
