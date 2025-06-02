@@ -143,10 +143,19 @@ import openai
 import streamlit_openai
 
 if "chat" not in st.session_state:
-    definition = {
-        "name": "search_web",
-        "description": "Searches the web using a query.",
-        "parameters": {
+    def handler(prompt):
+        client = openai.OpenAI()
+        response = client.chat.completions.create(
+            model="gpt-4o-search-preview",
+            web_search_options={},
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.choices[0].message.content
+    
+    search_web = streamlit_openai.utils.CustomFunction(
+        name="search_web",
+        description="Search the web using a query.",
+        parameters={
             "type": "object",
             "properties": {
                 "prompt": {
@@ -155,22 +164,11 @@ if "chat" not in st.session_state:
                 }
             },
             "required": ["prompt"]
-        }
-    }
+        },
+        handler=handler
+    )
 
-    def function(prompt):
-        client = openai.OpenAI()
-        response = client.chat.completions.create(
-            model="gpt-4o-search-preview",
-            web_search_options={},
-            messages=[{"role": "user", "content": prompt}],
-        )
-
-        return response.choices[0].message.content
-    
-    search_web = streamlit_openai.utils.CustomFunction(definition, function)
-
-    st.session_state.chat = streamlit_openai.ChatCompletions(
+    st.session_state.chat = streamlit_openai.Chat(
         functions=[search_web],
     )
 
@@ -188,10 +186,18 @@ import openai
 import streamlit_openai
 
 if "chat" not in st.session_state:
-    definition = {
-        "name": "transcribe_audio",
-        "description": "Convert speech to text.",
-        "parameters": {
+    def handler(audio_file):
+        client = openai.OpenAI()
+        response = client.audio.transcriptions.create(
+            model="gpt-4o-transcribe",
+            file=open(audio_file, "rb"),
+        )
+        return response.text
+    
+    transcribe_audio = streamlit_openai.utils.CustomFunction(
+        name="transcribe_audio",
+        description="Convert speech to text.",
+        parameters={
             "type": "object",
             "properties": {
                 "audio_file": {
@@ -200,20 +206,11 @@ if "chat" not in st.session_state:
                 }
             },
             "required": ["audio_file"]
-        }
-    }
+        },
+        handler=handler
+    )
 
-    def function(audio_file):
-        client = openai.OpenAI()
-        response = client.audio.transcriptions.create(
-            model="gpt-4o-transcribe",
-            file=open(audio_file, "rb"),
-        )
-        return response.text
-    
-    transcribe_audio = streamlit_openai.utils.CustomFunction(definition, function)
-
-    st.session_state.chat = streamlit_openai.ChatCompletions(
+    st.session_state.chat = streamlit_openai.Chat(
         functions=[transcribe_audio],
     )
 
@@ -475,35 +472,31 @@ st.session_state.chat.run()
 ```
 
 ## Info Message
-The `info_message` parameter allows you to display an informational message 
-within the chat interface, helping users grasp key details about how to 
-interact effectively with the assistant. Here's an example of how to include 
-such a message in the chat interface:
+The `info_message` parameter displays a persistent message at the top of the 
+chat, guiding users on how to interact with the assistant. Example:
 
 ```python
 import streamlit as st
 import streamlit_openai
 
 if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.ChatCompletions(
-        info_message="This is an informative and helpful message.",
+    st.session_state.chat = streamlit_openai.Chat(
+        info_message="Don't share sensitive info. AI may be inaccurate."
     )
 
 st.session_state.chat.run()
 ```
 
 ## Input Box Placeholder
-You can customize the placeholder text for the input box in the chat interface
-by providing the `placeholder` parameter when initializing the `ChatCompletions`
-or `Assistants` class. Below is an example of how to customize the placeholder
-text in a chat interface:
+You can set custom placeholder text for the chat input box using the 
+`placeholder` parameter when initializing the `Chat` class. Example:
 
 ```python
 import streamlit as st
 import streamlit_openai
 
 if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.ChatCompletions(
+    st.session_state.chat = streamlit_openai.Chat(
         placeholder="Type your message here..."
     )
 
