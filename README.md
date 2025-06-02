@@ -97,7 +97,7 @@ to create a chat interface:
 You can define and invoke custom functions within a chat using OpenAI's 
 function calling capabilities. To create a custom function, provide the 
 `name`, `description`, `parameters`, and `handler` arguments when initializing 
-a CustomFunction.
+a `CustomFunction`.
 
 Below is an example of a custom function that generates an image based on a 
 user-provided prompt:
