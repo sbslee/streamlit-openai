@@ -21,6 +21,7 @@ Here’s a quick overview of the package’s key features:
 - [Features](#features)
   - [Function Calling](#function-calling)
   - [File Inputs](#file-inputs)
+    - [Static File Upload](#static-file-upload)
 - [Responses API](#responses-api)
   - [Function Calling](#function-calling)
 - [Chat Completions API](#chat-completions-api)
@@ -139,20 +140,23 @@ st.session_state.chat.run()
 
 ## File Inputs
 
-The `Responses` class allows you to upload files and use them as context 
-for the assistant. 
+You can provide file inputs to the chat interface, allowing the assistant
+to access and utilize the content of the files during the conversation.
 
-One way to provide file inputs is to use the `message_files` parameter when
-initializing the `Responses` class. Below is an example of how to
-upload a PDF file and use it as context for the assistant:
+### Static File Upload
+
+You can upload files statically by providing the `uploaded_files` parameter
+when initializing the `Chat` class. This allows you to include files that
+are always available in the chat interface. Below is an example of how to
+upload a PDF file statically:
 
 ```python
 import streamlit as st
 import streamlit_openai
 
 if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.Responses(
-        message_files=["example.pdf"]
+    st.session_state.chat = streamlit_openai.Chat(
+        uploaded_files=["example.pdf"]
     )
 
 st.session_state.chat.run()
@@ -167,7 +171,7 @@ import streamlit as st
 import streamlit_openai
 
 if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.Responses()
+    st.session_state.chat = streamlit_openai.Chat()
     
 uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=True)
 

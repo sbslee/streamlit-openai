@@ -45,7 +45,7 @@ class Chat():
         temperature (float): Sampling temperature for the model (default: 1.0).
         placeholder (str): Placeholder text for the chat input box (default: "Your message").
         welcome_message (str): Welcome message from the assistant.
-        message_files (list): List of files to be uploaded to the assistant during initialization. Currently, only PDF files are supported.
+        uploaded_files (list): List of files to be uploaded to the assistant during initialization. Currently, only PDF files are supported.
         example_messages (list): A list of example messages for the user to choose from.
         info_message (str): Information message to be displayed in the chat.
         vector_store_ids (list): List of vector store IDs for file search. Only used if file_search is enabled.
@@ -69,7 +69,7 @@ class Chat():
         temperature: Optional[float] = 1.0,
         placeholder: Optional[str] = "Your message",
         welcome_message: Optional[str] = None,
-        message_files: Optional[List[str]] = None,
+        uploaded_files: Optional[List[str]] = None,
         example_messages: Optional[List[dict]] = None,
         info_message: Optional[str] = None,
         vector_store_ids: Optional[List[str]] = None,
@@ -85,7 +85,7 @@ class Chat():
         self.temperature = temperature
         self.placeholder = placeholder
         self.welcome_message = welcome_message
-        self.message_files = message_files
+        self.uploaded_files = uploaded_files
         self.example_messages = example_messages
         self.info_message = info_message
         self.vector_store_ids = vector_store_ids
@@ -121,9 +121,9 @@ class Chat():
             )
 
         # If message files are provided, upload them to the assistant
-        if self.message_files is not None:
-            for message_file in self.message_files:
-                tracked_file = TrackedFile(self, message_file=message_file)
+        if self.uploaded_files is not None:
+            for uploaded_file in self.uploaded_files:
+                tracked_file = TrackedFile(self, uploaded_file)
                 self.tracked_files.append(tracked_file)
 
     @property
@@ -267,32 +267,30 @@ class TrackedFile():
 
     Attributes:
         chat (ChatCompletions): The ChatCompletions instance that this file is associated with.
-        uploaded_file (UploadedFile): The UploadedFile object created by Streamlit.
-        message_file (str): The file path of the message file.
+        uploaded_file (UploadedFile or str): An UploadedFile object or a string representing the file path.
         openai_file (File): The File object created by OpenAI.
         file_path (Path): The path to the file on the local filesystem.
     """
     def __init__(
         self,
         chat: Chat,
-        uploaded_file: Optional[UploadedFile] = None,
-        message_file: Optional[str] = None,
+        uploaded_file: Optional[UploadedFile]
     ) -> None:
-        if (uploaded_file is None) == (message_file is None):
-            raise ValueError("Exactly one of 'uploaded_file' or 'message_file' must be provided.")
         self.chat = chat
         self.uploaded_file = uploaded_file
-        self.message_file = message_file
         self.openai_file = None
         self.vector_store = None
         self.vision_file = None
 
-        if self.uploaded_file is not None:
+        if isinstance(self.uploaded_file, str):
+            self.file_path = Path(self.uploaded_file).resolve()
+        elif isinstance(self.uploaded_file, UploadedFile):
             self.file_path = Path(os.path.join(self.chat.temp_dir.name, self.uploaded_file.name))
             with open(self.file_path, "wb") as f:
                 f.write(self.uploaded_file.getvalue())
         else:
-            self.file_path = Path(self.message_file).resolve()
+            raise ValueError("uploaded_file must be an instance of UploadedFile or a string representing the file path.")
+
 
         self.chat.input.append(
             {"role": "user", "content": [{"type": "input_text", "text": f"File locally available at: {self.file_path}"}]}
