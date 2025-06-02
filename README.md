@@ -148,12 +148,24 @@ to access and utilize the content of the files during the conversation.
 ### Message Attachments
 
 You can upload files in the chat by clicking the attachment icon or dragging 
-files into the input box. Uploaded files are sent with your message, and the 
-assistant can access their content.
+them into the input box. Uploaded files are sent along with your message, and 
+the assistant can access their content. This behavior is controlled by the 
+`accept_file` parameter when initializing the `Chat` class. Below is an 
+example of how to enable file uploads in the chat interface:
 
-By default, the `Chat` class allows multiple file uploads 
-(`accept_file="multiple"`). To allow only one file, set `accept_file=True`. To 
-disable uploads entirely, set `accept_file=False`.
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Chat(
+        accept_file="multiple" # Allow multiple file uploads (default)
+        # accept_file=True,    # Allow only one file upload
+        # accept_file=False,   # Disable file uploads entirely
+    )
+
+st.session_state.chat.run()
+```
 
 ### Static File Upload
 
