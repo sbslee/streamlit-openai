@@ -1,2 +1,2 @@
 from . import utils
-from .responses import Responses
+from .chat import Chat

@@ -27,7 +27,7 @@ FILE_SEARCH_EXTENSIONS = [
 
 VISION_EXTENSIONS = [".png", ".jpeg", ".jpg", ".webp", ".gif"]
 
-class Responses():
+class Chat():
     """
     A chat interface using OpenAI's Responses API.
 
@@ -154,21 +154,21 @@ class Responses():
             elif event1.type == "response.output_item.done":   
                 if event1.item.type == "function_call":
                     tool_calls[event1.item.name] = event1
-                elif event1.item.content is not None:
+                # elif event1.item.content is not None:
                     ###########################################
                     ## OpenAI's Python SDK is not ready yet. ##
                     ###########################################
-                    print(event1.item.content[0].annotations[0].file_id)
-                    print(event1.item.content[0].annotations[0].container_id)
+                    # print(event1.item.content[0].annotations[0].file_id)
+                    # print(event1.item.content[0].annotations[0].container_id)
                     # result = self.client.containers.files.content.retrieve(
                     #     file_id=event1.item.content[0].annotations[0].file_id,
                     #     container_id=event1.item.content[0].annotations[0].container_id
                     # )
-                    result = self.client.containers.files.content.with_raw_response.retrieve(
-                        file_id=event1.item.content[0].annotations[0].file_id,
-                        container_id=event1.item.content[0].annotations[0].container_id
-                    )
-                    print(result) # Keeps returnnig None
+                    # result = self.client.containers.files.content.with_raw_response.retrieve(
+                    #     file_id=event1.item.content[0].annotations[0].file_id,
+                    #     container_id=event1.item.content[0].annotations[0].container_id
+                    # )
+                    # print(result) # Keeps returnnig None
                 # elif event1.type == "response.output_item.done" and event1.item.content[0].annotations[0].type == "container_file_citation":
                     # print(event1.item.content[0].annotations[0].file_id)
                     # print(event1.item.content[0].)
@@ -275,7 +275,7 @@ class TrackedFile():
     """
     def __init__(
         self,
-        chat: Responses,
+        chat: Chat,
         uploaded_file: Optional[UploadedFile] = None,
         message_file: Optional[str] = None,
     ) -> None:
