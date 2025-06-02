@@ -24,15 +24,10 @@ Here’s a quick overview of the package’s key features:
     - [Message Attachments](#message-attachments)
     - [Static File Upload](#static-file-upload)
     - [File Uploader Widget](#file-uploader-widget)
-- [Chat Completions API](#chat-completions-api)
-  - [Function Calling](#function-calling-1)
   - [Vision](#vision)
-- [Assistants API](#assistants-api)
-  - [Function Calling](#function-calling-2)
   - [File Search](#file-search)
+    - [Vector Store Retrieval](#vector-store-retrieval)
   - [Code Interpreter](#code-interpreter)
-  - [Existing Assistant Retrieval](#existing-assistant-retrieval)
-  - [Existing Vector Store Retrieval](#existing-vector-store-retrieval)
 - [Customization](#customization)
   - [Model Selection](#model-selection)
   - [Temperature](#temperature)
@@ -202,8 +197,9 @@ st.session_state.chat.run(uploaded_files=uploaded_files)
 ```
 
 ## Vision
-The `Chat` class supports OpenAI's vision capabilities, enabling image input 
-processing in chat. Here's an example:
+The `Chat` class supports OpenAI’s vision capabilities, allowing image input 
+to be processed within a chat. Currently, the following image formats are 
+supported: `.png`, `.jpeg`, `.jpg`, `.webp`, and `.gif`. Here’s an example:
 
 ```python
 import streamlit as st
@@ -219,23 +215,43 @@ st.session_state.chat.run()
 
 ## File Search
 
-You can allow models to search your files for relevant information before 
-generating a response by using OpenAI’s File Search capabilities. To enable 
-File Search, set the `file_search` parameter to `True` when initializing the 
-`Assistants` class. Note that this feature is available only in the Assistants 
-API and not in the Chat Completions API from OpenAI. Below is an example of
-how to enable File Search in a chat interface:
+The `Chat` class supports file search capabilities, enabling the assistant to 
+search through uploaded files and retrieve relevant information during a 
+conversation. The following file formats are currently supported: `.c`, 
+`.cpp`, `.cs`, `.css`, `.doc`, `.docx`, `.go`, `.html`, `.java`, `.js`, 
+`.json`, `.md`, `.pdf`, `.php`, `.pptx`, `.py`, `.rb`, `.sh`, `.tex`, `.ts`, 
+and `.txt`. Below is an example:
 
 ```python
 import streamlit as st
 import streamlit_openai
 
 if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.Assistants(file_search=True)
-    
-uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=True)
+    st.session_state.chat = streamlit_openai.Chat(
+        message_files=["example.pdf"]
+    )
 
-st.session_state.chat.run(uploaded_files=uploaded_files)
+st.session_state.chat.run()
+```
+
+### Vector Store Retrieval
+You can retrieve one or more existing vector stores by providing their IDs when
+initializing the `Assistants` class. This allows you to use pre-existing vector
+stores for searching and retrieving relevant information during the chat. Note 
+that the `vector_store_ids` parameter is only applicable when the 
+`file_search` parameter is set to `True`. Below is an example of how to 
+retrieve existing vector stores in a chat interface:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Assistants(
+        file_search=True,
+        vector_store_ids=["vs_...", "vs_..."]
+    )
+st.session_state.chat.run()
 ```
 
 ## Code Interpreter
@@ -254,42 +270,6 @@ import streamlit_openai
 if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.Assistants(code_interpreter=True)
 
-st.session_state.chat.run()
-```
-
-## Existing Assistant Retrieval
-You can retrieve an existing assistant by providing its ID when initializing
-the `Assistants` class. This allows you to continue a conversation with an
-existing assistant without losing context. Below is an example of how to
-retrieve an existing assistant in a chat interface:
-
-```python
-import streamlit as st
-import streamlit_openai
-
-if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.Assistants(assistant_id="asst_...")
-    
-st.session_state.chat.run()
-```
-
-## Existing Vector Store Retrieval
-You can retrieve one or more existing vector stores by providing their IDs when
-initializing the `Assistants` class. This allows you to use pre-existing vector
-stores for searching and retrieving relevant information during the chat. Note 
-that the `vector_store_ids` parameter is only applicable when the 
-`file_search` parameter is set to `True`. Below is an example of how to 
-retrieve existing vector stores in a chat interface:
-
-```python
-import streamlit as st
-import streamlit_openai
-
-if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.Assistants(
-        file_search=True,
-        vector_store_ids=["vs_...", "vs_..."]
-    )
 st.session_state.chat.run()
 ```
 
