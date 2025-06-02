@@ -94,11 +94,13 @@ to create a chat interface:
 
 ## Function Calling
 
-You can define and call custom functions within a chat using OpenAI’s function 
-calling capabilities. To create a custom function, define a `CustomFunction` 
-class that takes two input arguments: `definition` (a dictionary describing 
-the function) and `function` (the actual callable method). Below is an example 
-of a custom function that generates an image based on a given prompt:
+You can define and invoke custom functions within a chat using OpenAI's 
+function calling capabilities. To create a custom function, provide the 
+`name`, `description`, `parameters`, and `handler` arguments when initializing 
+a CustomFunction.
+
+Below is an example of a custom function that generates an image based on a 
+user-provided prompt:
 
 ```python
 import streamlit as st
@@ -117,7 +119,7 @@ if "chat" not in st.session_state:
         )
         return response.data[0].url
     
-    generate_image = streamlit_openai.utils.CustomFunction(
+    generate_image = streamlit_openai.CustomFunction(
         name="generate_image",
         description="Generate an image based on a given prompt.",
         parameters={
