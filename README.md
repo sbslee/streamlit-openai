@@ -188,9 +188,9 @@ st.session_state.chat.run()
 
 ### File Uploader Widget
 
-Alternatively, you can use the `st.file_uploader` method to allow users to
-upload files dynamically. Below is an example of how to use the `st.file_uploader`
-method to upload a PDF file and use it as context for the assistant:
+You can use `st.file_uploader` to let users upload files dynamically. While the 
+widget allows file removal, the files remain in the chat history and context. 
+Here's an example of how to use it:
 
 ```python
 import streamlit as st
