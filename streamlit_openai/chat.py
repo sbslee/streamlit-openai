@@ -187,7 +187,6 @@ class Chat():
                                     container_id=annotation.container_id
                                 )
                                 self.last_section.update_and_stream("image", image_content.read()) 
-                    self.last_section.update_and_stream("text", event1.item.content[0].text)                  
 
         if tool_calls:
             for tool in tool_calls:
