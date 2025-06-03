@@ -102,9 +102,9 @@ class Block():
             "content": content,
         }
 
-class Container():
+class Section():
     """
-    Represents a single message container in a Streamlit chat interface, 
+    Represents a single message section in a Streamlit chat interface, 
     managing role-based message blocks and real-time updates.
 
     This class holds a sequence of message blocks (e.g., text, code, image) 
@@ -129,20 +129,20 @@ class Container():
         self.delta_generator = st.empty()
         
     def __repr__(self) -> None:
-        return f"Container(role='{self.role}', blocks={self.blocks})"
+        return f"Section(role='{self.role}', blocks={self.blocks})"
 
     @property
     def empty(self) -> bool:
-        """Returns True if the container has no blocks."""
+        """Returns True if the section has no blocks."""
         return self.blocks is None
 
     @property
     def last_block(self) -> Optional[Block]:
-        """Returns the last block in the container or None if empty."""
+        """Returns the last block in the section or None if empty."""
         return None if self.empty else self.blocks[-1]
 
     def update(self, category, content) -> None:
-        """Updates the container with new content, appending or extending existing blocks."""
+        """Updates the section with new content, appending or extending existing blocks."""
         if self.empty:
             self.blocks = [Block(self.chat, category, content)]
         elif category in ["text", "code"] and self.last_block.iscategory(category):
@@ -151,7 +151,7 @@ class Container():
             self.blocks.append(Block(self.chat, category, content))
 
     def write(self) -> None:
-        """Renders the container's content in the Streamlit chat interface."""
+        """Renders the section's content in the Streamlit chat interface."""
         if self.empty:
             pass
         else:
@@ -160,17 +160,17 @@ class Container():
                     block.write()
 
     def update_and_stream(self, category, content) -> None:
-        """Updates the container and streams the update live to the UI."""
+        """Updates the section and streams the update live to the UI."""
         self.update(category, content)
         self.stream()
 
     def stream(self) -> None:
-        """Renders the container content using Streamlit's delta generator."""
+        """Renders the section content using Streamlit's delta generator."""
         with self.delta_generator:
             self.write()
 
     def to_dict(self) -> Dict[str, Any]:
-        """Converts the container to a dictionary representation."""
+        """Converts the section to a dictionary representation."""
         if self.empty:
             return {}
         else:

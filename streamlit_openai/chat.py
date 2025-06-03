@@ -3,7 +3,7 @@ import openai
 import os, json, tempfile, zipfile
 from pathlib import Path
 from typing import Optional, List, Union, Literal
-from .utils import Container, Block, CustomFunction
+from .utils import Section, Block, CustomFunction
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 DEVELOPER_MESSAGE = """
@@ -93,7 +93,7 @@ class Chat():
         self._input = []
         self._tools = []
         self._previous_response_id = None
-        self._containers = []
+        self._sections = []
         self._tracked_files = []
 
         if self.allow_code_interpreter:
@@ -114,8 +114,8 @@ class Chat():
         # If a welcome message is provided, add it to the chat history
         if self.welcome_message is not None:
             self._input.append({"role": "assistant", "content": self.welcome_message})
-            self._containers.append(
-                Container(self, "assistant", blocks=[Block(self, "text", self.welcome_message)])
+            self._sections.append(
+                Section(self, "assistant", blocks=[Block(self, "text", self.welcome_message)])
             )
 
         # If message files are provided, upload them to the assistant
@@ -133,26 +133,26 @@ class Chat():
                     f.extractall(t)
                 with open(f"{t}/{self.history.replace('.zip', '')}/data.json", "r") as f:
                     data = json.load(f)
-                    for container in data["containers"]:
-                        self._containers.append(Container(
+                    for section in data["sections"]:
+                        self._sections.append(Section(
                             self,
-                            container["role"],
-                            blocks=[Block(self, block["category"], block["content"]) for block in container["blocks"]]
+                            section["role"],
+                            blocks=[Block(self, block["category"], block["content"]) for block in section["blocks"]]
                         ))
-                        for block in container["blocks"]:
+                        for block in section["blocks"]:
                             self._input.append({
-                                "role": container["role"],
+                                "role": section["role"],
                                 "content": block["content"]
                             })
 
     @property
-    def last_container(self) -> Optional[Container]:
-        return self._containers[-1] if self._containers else None
+    def last_section(self) -> Optional[Section]:
+        return self._sections[-1] if self._sections else None
 
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
         self._input.append({"role": "user", "content": prompt})
-        self._containers.append(Container(self, "assistant"))
+        self._sections.append(Section(self, "assistant"))
         events1 = self._client.responses.create(
             model=self.model,
             input=self._input,
@@ -168,9 +168,9 @@ class Chat():
             if event1.type == "response.completed":
                 self._previous_response_id = event1.response.id
             elif event1.type == "response.output_text.delta":
-                self.last_container.update_and_stream("text", event1.delta)
+                self.last_section.update_and_stream("text", event1.delta)
             elif event1.type == "response.code_interpreter_call_code.delta":
-                self.last_container.update_and_stream("code", event1.delta)
+                self.last_section.update_and_stream("code", event1.delta)
             elif event1.type == "response.output_item.done":
                 if event1.item.type == "function_call":
                     tool_calls[event1.item.name] = event1
@@ -186,8 +186,8 @@ class Chat():
                                     file_id=annotation.file_id,
                                     container_id=annotation.container_id
                                 )
-                                self.last_container.update_and_stream("image", image_content.read()) 
-                    self.last_container.update_and_stream("text", event1.item.content[0].text)                  
+                                self.last_section.update_and_stream("image", image_content.read()) 
+                    self.last_section.update_and_stream("text", event1.item.content[0].text)                  
 
         if tool_calls:
             for tool in tool_calls:
@@ -212,14 +212,14 @@ class Chat():
                 if event2.type == "response.completed":
                     self._previous_response_id = event2.response.id
                 elif event2.type == "response.output_text.delta":
-                    self.last_container.update_and_stream("text", event2.delta)
+                    self.last_section.update_and_stream("text", event2.delta)
 
     def run(self, uploaded_files=None) -> None:
         """Runs the main assistant loop: handles user messages."""
         if self.info_message is not None:
             st.info(self.info_message)
-        for container in self._containers:
-            container.write()
+        for section in self._sections:
+            section.write()
         chat_input = st.chat_input(placeholder=self.placeholder, accept_file=self.accept_file)
         if chat_input is not None:
             if self.accept_file in [True, "multiple"]:
@@ -233,8 +233,8 @@ class Chat():
                 prompt = chat_input
             with st.chat_message("user"):
                 st.markdown(prompt)
-            self._containers.append(
-                Container(self, "user", blocks=[Block(self, "text", prompt)])
+            self._sections.append(
+                Section(self, "user", blocks=[Block(self, "text", prompt)])
             )
             self.handle_files(uploaded_files)
             self.respond(prompt)
@@ -252,8 +252,8 @@ class Chat():
                 else:
                     with st.chat_message("user"):
                             st.markdown(self._selected_example)
-                    self._containers.append(
-                        Container(self, "user", blocks=[Block(self, "text", self._selected_example)])
+                    self._sections.append(
+                        Section(self, "user", blocks=[Block(self, "text", self._selected_example)])
                     )
                     self.respond(self._selected_example)
 
@@ -274,7 +274,7 @@ class Chat():
         if not file_path.endswith(".zip"):
             raise ValueError("File path must end with .zip")
         data = {
-            "containers": [container.to_dict() for container in self._containers],
+            "Sections": [section.to_dict() for section in self._sections],
         }
         with tempfile.TemporaryDirectory() as t:
             with open(f"{t}/data.json", "w") as f:

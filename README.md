@@ -76,7 +76,7 @@ $ streamlit run app.py
 
 # Schematic Diagram
 
-The following diagram illustrates the `Container` and `Block` classes used
+The following diagram illustrates the `Section` and `Block` classes used
 to create a chat interface:
 
 ![Schematic diagram](schematic_diagram.png)
