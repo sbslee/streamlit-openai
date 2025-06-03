@@ -133,16 +133,18 @@ class Chat():
 
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
+        self.input.append({"role": "user", "content": prompt})
         self.containers.append(Container(self, "assistant"))
         events1 = self.client.responses.create(
             model=self.model,
-            input=[{"role": "user", "content": prompt}],
+            input=self.input,
             instructions=DEVELOPER_MESSAGE+self.instructions,
             temperature=self.temperature,
             tools=self.tools,
             previous_response_id=self._previous_response_id,
             stream=True,
         )
+        self.input = []
         tool_calls = {}
         for event1 in events1:
             if event1.type == "response.completed":
@@ -164,24 +166,24 @@ class Chat():
                                 )
                                 self.last_container.update_and_stream("image", image_content.read())
         if tool_calls:
-            input = []
             for tool in tool_calls:
                 function = [x for x in self.functions if x.name == tool][0]
                 result = function.handler(**json.loads(tool_calls[tool].item.arguments))
-                input.append({
+                self.input.append({
                     "type": "function_call_output",
                     "call_id": tool_calls[tool].item.call_id,
                     "output": str(result)
                 })
             events2 = self.client.responses.create(
                 model=self.model,
-                input=input,
+                input=self.input,
                 instructions=DEVELOPER_MESSAGE+self.instructions,
                 temperature=self.temperature,
                 tools=self.tools,
                 previous_response_id=self._previous_response_id,
                 stream=True,
             )
+            self.input = []
             for event2 in events2:
                 if event2.type == "response.completed":
                     self._previous_response_id = event2.response.id
