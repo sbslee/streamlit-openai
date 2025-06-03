@@ -376,15 +376,14 @@ st.session_state.chat.run()
 ```
 
 After saving the chat history, you can load it in a new session by passing the 
-history parameter when initializing the `ChatCompletions` or `Assistants` 
-class. Below is an example of how to load a chat history:
+`history` parameter when initializing the `Chat` class. Example:
 
 ```python
 import streamlit as st
 import streamlit_openai
 
 if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.ChatCompletions(history="history.zip")
+    st.session_state.chat = streamlit_openai.Chat(history="history.zip")
 
 st.session_state.chat.run()
 ```

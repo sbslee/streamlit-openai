@@ -49,6 +49,7 @@ class Chat():
         example_messages (list): A list of example messages for the user to choose from.
         info_message (str): Information message to be displayed in the chat.
         vector_store_ids (list): List of vector store IDs for file search. Only used if file_search is enabled.
+        history (str): File path to the chat history ZIP file. If provided, the chat history will be loaded from this file.
         allow_code_interpreter (bool): Whether to allow code interpreter functionality (default: True).
     """
     def __init__(
@@ -67,6 +68,7 @@ class Chat():
         example_messages: Optional[List[dict]] = None,
         info_message: Optional[str] = None,
         vector_store_ids: Optional[List[str]] = None,
+        history: Optional[str] = None,
         allow_code_interpreter: Optional[bool] = True,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
@@ -83,6 +85,7 @@ class Chat():
         self.example_messages = example_messages
         self.info_message = info_message
         self.vector_store_ids = vector_store_ids
+        self.history = history
         self.allow_code_interpreter = allow_code_interpreter
         self._client = openai.OpenAI(api_key=self.api_key)
         self._temp_dir = tempfile.TemporaryDirectory()
@@ -120,6 +123,27 @@ class Chat():
             for uploaded_file in self.uploaded_files:
                 tracked_file = TrackedFile(self, uploaded_file)
                 self._tracked_files.append(tracked_file)
+
+        # If ㅁ chat history file is provided, load the chat history
+        if self.history is not None:
+            if not self.history.endswith(".zip"):
+                raise ValueError("History file must end with .zip")
+            with tempfile.TemporaryDirectory() as t:
+                with zipfile.ZipFile(self.history, "r") as f:
+                    f.extractall(t)
+                with open(f"{t}/{self.history.replace('.zip', '')}/data.json", "r") as f:
+                    data = json.load(f)
+                    for container in data["containers"]:
+                        self._containers.append(Container(
+                            self,
+                            container["role"],
+                            blocks=[Block(self, block["category"], block["content"]) for block in container["blocks"]]
+                        ))
+                        for block in container["blocks"]:
+                            self._input.append({
+                                "role": container["role"],
+                                "content": block["content"]
+                            })
 
     @property
     def last_container(self) -> Optional[Container]:
