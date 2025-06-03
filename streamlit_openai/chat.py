@@ -50,12 +50,8 @@ class Chat():
         uploaded_files (list): List of files to be uploaded to the assistant during initialization. Currently, only PDF files are supported.
         vector_store_ids (list): List of vector store IDs for file search. Only used if file_search is enabled.
         allow_code_interpreter (bool): Whether to allow code interpreter functionality (default: True).
-        client (openai.OpenAI): The OpenAI client instance for API calls.
-        input (list): The chat history in OpenAI's expected message format.
         containers (list): List to track the conversation history in structured form.
-        tools (list): A list of tools derived from function definitions for the assistant to call.
         tracked_files (list): List of files being tracked for uploads/removals.
-        selected_example_message (str): The selected example message from the list of example messages.
     """
     def __init__(
         self,
@@ -90,21 +86,21 @@ class Chat():
         self.uploaded_files = uploaded_files
         self.vector_store_ids = vector_store_ids
         self.allow_code_interpreter = allow_code_interpreter
-        self.client = openai.OpenAI(api_key=self.api_key)
-        self.input = []
         self.containers = []
-        self.tools = []
         self.tracked_files = []
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.selected_example_message = None
+        self._client = openai.OpenAI(api_key=self.api_key)
+        self._temp_dir = tempfile.TemporaryDirectory()
+        self._selected_example = None
+        self._input = []
+        self._tools = []
         self._previous_response_id = None
 
         if self.allow_code_interpreter:
-            self.tools.append({"type": "code_interpreter", "container": {"type": "auto"}})
+            self._tools.append({"type": "code_interpreter", "container": {"type": "auto"}})
 
         if self.functions is not None:
             for function in self.functions:
-                self.tools.append({
+                self._tools.append({
                     "type": "function",
                     "name": function.name,
                     "description": function.description,
@@ -112,11 +108,11 @@ class Chat():
                 })
 
         if self.vector_store_ids is not None:
-            self.tools.append({"type": "file_search", "vector_store_ids": self.vector_store_ids})
+            self._tools.append({"type": "file_search", "vector_store_ids": self.vector_store_ids})
 
         # If a welcome message is provided, add it to the chat history
         if self.welcome_message is not None:
-            self.input.append({"role": "assistant", "content": self.welcome_message})
+            self._input.append({"role": "assistant", "content": self.welcome_message})
             self.containers.append(
                 Container(self, "assistant", blocks=[Block(self, "text", self.welcome_message)])
             )
@@ -133,18 +129,18 @@ class Chat():
 
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
-        self.input.append({"role": "user", "content": prompt})
+        self._input.append({"role": "user", "content": prompt})
         self.containers.append(Container(self, "assistant"))
-        events1 = self.client.responses.create(
+        events1 = self._client.responses.create(
             model=self.model,
-            input=self.input,
+            input=self._input,
             instructions=DEVELOPER_MESSAGE+self.instructions,
             temperature=self.temperature,
-            tools=self.tools,
+            tools=self._tools,
             previous_response_id=self._previous_response_id,
             stream=True,
         )
-        self.input = []
+        self._input = []
         tool_calls = {}
         for event1 in events1:
             if event1.type == "response.completed":
@@ -160,7 +156,7 @@ class Chat():
                     for annotation in event1.item.content[0].annotations:
                         if annotation.type == "container_file_citation":
                              if Path(annotation.filename).suffix in [".png", ".jpg", ".jpeg"]:
-                                image_content = self.client.containers.files.content.retrieve(
+                                image_content = self._client.containers.files.content.retrieve(
                                     file_id=annotation.file_id,
                                     container_id=annotation.container_id
                                 )
@@ -169,21 +165,21 @@ class Chat():
             for tool in tool_calls:
                 function = [x for x in self.functions if x.name == tool][0]
                 result = function.handler(**json.loads(tool_calls[tool].item.arguments))
-                self.input.append({
+                self._input.append({
                     "type": "function_call_output",
                     "call_id": tool_calls[tool].item.call_id,
                     "output": str(result)
                 })
-            events2 = self.client.responses.create(
+            events2 = self._client.responses.create(
                 model=self.model,
-                input=self.input,
+                input=self._input,
                 instructions=DEVELOPER_MESSAGE+self.instructions,
                 temperature=self.temperature,
-                tools=self.tools,
+                tools=self._tools,
                 previous_response_id=self._previous_response_id,
                 stream=True,
             )
-            self.input = []
+            self._input = []
             for event2 in events2:
                 if event2.type == "response.completed":
                     self._previous_response_id = event2.response.id
@@ -216,22 +212,22 @@ class Chat():
             self.respond(prompt)
         else:
             if self.example_messages is not None:
-                if self.selected_example_message is None:
-                    selected_example_message = st.pills(
+                if self._selected_example is None:
+                    selected_example = st.pills(
                         "Examples",
                         options=self.example_messages,
                         label_visibility="collapsed"
                     )
-                    if selected_example_message:
-                        self.selected_example_message = selected_example_message
+                    if selected_example:
+                        self._selected_example = selected_example
                         st.rerun()
                 else:
                     with st.chat_message("user"):
-                            st.markdown(self.selected_example_message)
+                            st.markdown(self._selected_example)
                     self.containers.append(
-                        Container(self, "user", blocks=[Block(self, "text", self.selected_example_message)])
+                        Container(self, "user", blocks=[Block(self, "text", self._selected_example)])
                     )
-                    self.respond(self.selected_example_message)
+                    self.respond(self._selected_example)
 
     def handle_files(self, uploaded_files) -> None:
         """Handles uploaded files and manages tracked file lifecycle."""
@@ -269,49 +265,49 @@ class TrackedFile():
         if isinstance(self.uploaded_file, str):
             self.file_path = Path(self.uploaded_file).resolve()
         elif isinstance(self.uploaded_file, UploadedFile):
-            self.file_path = Path(os.path.join(self.chat.temp_dir.name, self.uploaded_file.name))
+            self.file_path = Path(os.path.join(self.chat._temp_dir.name, self.uploaded_file.name))
             with open(self.file_path, "wb") as f:
                 f.write(self.uploaded_file.getvalue())
         else:
             raise ValueError("uploaded_file must be an instance of UploadedFile or a string representing the file path.")
 
 
-        self.chat.input.append(
+        self.chat._input.append(
             {"role": "user", "content": [{"type": "input_text", "text": f"File locally available at: {self.file_path}"}]}
         )
 
         if self.file_path.suffix in FILE_SEARCH_EXTENSIONS:
             with open(self.file_path, "rb") as f:
-                openai_file = self.chat.client.files.create(file=f, purpose="assistants")
-            vector_store = self.chat.client.vector_stores.create()
-            self.chat.client.vector_stores.files.create(
+                openai_file = self.chat._client.files.create(file=f, purpose="assistants")
+            vector_store = self.chat._client.vector_stores.create()
+            self.chat._client.vector_stores.files.create(
                 vector_store_id=vector_store.id,
                 file_id=openai_file.id
             )
-            result = self.chat.client.vector_stores.files.retrieve(
+            result = self.chat._client.vector_stores.files.retrieve(
                 vector_store_id=vector_store.id,
                 file_id=openai_file.id,
             )
             while result.status != "completed":
-                result = self.chat.client.vector_stores.files.retrieve(
+                result = self.chat._client.vector_stores.files.retrieve(
                     vector_store_id=vector_store.id,
                     file_id=openai_file.id,
                 )
-            if not self.chat.tools:
-                self.chat.tools.append({"type": "file_search", "vector_store_ids": [vector_store.id]})
+            if not self.chat._tools:
+                self.chat._tools.append({"type": "file_search", "vector_store_ids": [vector_store.id]})
             else:
-                for tool in self.chat.tools:
+                for tool in self.chat._tools:
                     if tool["type"] == "file_search":
                         if self.vector_store.id not in tool["vector_store_ids"]:
                             tool["vector_store_ids"].append(self.vector_store.id)
                         break
                 else:
-                    self.chat.tools.append({"type": "file_search", "vector_store_ids": [vector_store.id]})
+                    self.chat._tools.append({"type": "file_search", "vector_store_ids": [vector_store.id]})
             self.data["file_search"] = {"file_id": openai_file.id, "vector_store_id": vector_store.id}
 
         if self.file_path.suffix in VISION_EXTENSIONS:
-            openai_file = self.chat.client.files.create(file=self.file_path, purpose="vision")
-            self.chat.input.append({
+            openai_file = self.chat._client.files.create(file=self.file_path, purpose="vision")
+            self.chat._input.append({
                 "role": "user",
                 "content": [{"type": "input_image", "file_id": openai_file.id}]
             })
