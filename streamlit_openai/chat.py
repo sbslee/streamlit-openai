@@ -97,6 +97,7 @@ class Chat():
         self.tracked_files = []
         self.temp_dir = tempfile.TemporaryDirectory()
         self.selected_example_message = None
+        self._previous_response_id = None
 
         if self.allow_code_interpreter:
             self.tools.append({"type": "code_interpreter", "container": {"type": "auto"}})
@@ -132,78 +133,60 @@ class Chat():
 
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
-        self.input.append({"role": "user", "content": prompt})
         self.containers.append(Container(self, "assistant"))
         events1 = self.client.responses.create(
             model=self.model,
-            input=self.input,
+            input=[{"role": "user", "content": prompt}],
             instructions=DEVELOPER_MESSAGE+self.instructions,
             temperature=self.temperature,
             tools=self.tools,
+            previous_response_id=self._previous_response_id,
             stream=True,
         )
-        response1 = ""
         tool_calls = {}
         for event1 in events1:
-            if event1.type == "response.output_text.delta":
+            if event1.type == "response.completed":
+                self._previous_response_id = event1.response.id
+            elif event1.type == "response.output_text.delta":
                 self.last_container.update_and_stream("text", event1.delta)
-                response1 += event1.delta
             elif event1.type == "response.code_interpreter_call_code.delta":
                 self.last_container.update_and_stream("code", event1.delta)
-            elif event1.type == "response.output_item.done":   
+            elif event1.type == "response.output_item.done":
                 if event1.item.type == "function_call":
                     tool_calls[event1.item.name] = event1
-                # elif event1.item.content is not None:
-                    ###########################################
-                    ## OpenAI's Python SDK is not ready yet. ##
-                    ###########################################
-                    # print(event1.item.content[0].annotations[0].file_id)
-                    # print(event1.item.content[0].annotations[0].container_id)
-                    # result = self.client.containers.files.content.retrieve(
-                    #     file_id=event1.item.content[0].annotations[0].file_id,
-                    #     container_id=event1.item.content[0].annotations[0].container_id
-                    # )
-                    # result = self.client.containers.files.content.with_raw_response.retrieve(
-                    #     file_id=event1.item.content[0].annotations[0].file_id,
-                    #     container_id=event1.item.content[0].annotations[0].container_id
-                    # )
-                    # print(result) # Keeps returnnig None
-                # elif event1.type == "response.output_item.done" and event1.item.content[0].annotations[0].type == "container_file_citation":
-                    # print(event1.item.content[0].annotations[0].file_id)
-                    # print(event1.item.content[0].)
-        if response1:
-            self.input.append({"role": "assistant", "content": response1})
+                elif event1.item.type == "message" and event1.item.content and event1.item.content[0].annotations:
+                    for annotation in event1.item.content[0].annotations:
+                        if annotation.type == "container_file_citation":
+                             if Path(annotation.filename).suffix in [".png", ".jpg", ".jpeg"]:
+                                image_content = self.client.containers.files.content.retrieve(
+                                    file_id=annotation.file_id,
+                                    container_id=annotation.container_id
+                                )
+                                self.last_container.update_and_stream("image", image_content.read())
         if tool_calls:
+            input = []
             for tool in tool_calls:
                 function = [x for x in self.functions if x.name == tool][0]
                 result = function.handler(**json.loads(tool_calls[tool].item.arguments))
-                self.input.append({
-                    "type": "function_call",
-                    "id": tool_calls[tool].item.id,
-                    "call_id": tool_calls[tool].item.call_id,
-                    "name": tool_calls[tool].item.name,
-                    "arguments": tool_calls[tool].item.arguments,
-                })
-                self.input.append({
+                input.append({
                     "type": "function_call_output",
                     "call_id": tool_calls[tool].item.call_id,
                     "output": str(result)
                 })
             events2 = self.client.responses.create(
                 model=self.model,
-                input=self.input,
+                input=input,
                 instructions=DEVELOPER_MESSAGE+self.instructions,
                 temperature=self.temperature,
                 tools=self.tools,
+                previous_response_id=self._previous_response_id,
                 stream=True,
             )
-            response2 = ""
             for event2 in events2:
-                if event2.type == "response.output_text.delta":
+                if event2.type == "response.completed":
+                    self._previous_response_id = event2.response.id
+                elif event2.type == "response.output_text.delta":
                     self.last_container.update_and_stream("text", event2.delta)
-                    response2 += event2.delta
-            if response2:
-                self.input.append({"role": "assistant", "content": response2})
 
     def run(self, uploaded_files=None) -> None:
         """Runs the main assistant loop: handles user messages."""
