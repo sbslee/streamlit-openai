@@ -31,6 +31,7 @@ Here’s a quick overview of the package’s key features:
   - [File Search](#file-search)
     - [Vector Store Retrieval](#vector-store-retrieval)
   - [Code Interpreter](#code-interpreter)
+  - [Chat History](#chat-history)
 - [Customization](#customization)
   - [Model Selection](#model-selection)
   - [Temperature](#temperature)
@@ -40,7 +41,6 @@ Here’s a quick overview of the package’s key features:
   - [Example Messages](#example-messages)
   - [Info Message](#info-message)
   - [Input Box Placeholder](#input-box-placeholder)
-  - [Chat History](#chat-history)
 
 # Installation
 
@@ -355,6 +355,40 @@ if "chat" not in st.session_state:
 st.session_state.chat.run()
 ```
 
+## Chat History
+
+You can save chat history to let users resume conversations across sessions. 
+Use the `Chat` class’s `save` method to save history as a ZIP file. Currently, 
+only text is saved—other file types (e.g., images) are not supported. Example:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Chat()
+    
+with st.sidebar:
+    if st.button("Save"):
+        st.session_state.chat.save("history.zip")
+
+st.session_state.chat.run()
+```
+
+After saving the chat history, you can load it in a new session by passing the 
+history parameter when initializing the `ChatCompletions` or `Assistants` 
+class. Below is an example of how to load a chat history:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.ChatCompletions(history="history.zip")
+
+st.session_state.chat.run()
+```
+
 # Customization
 
 ## Model Selection
@@ -485,41 +519,6 @@ if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.Chat(
         placeholder="Type your message here..."
     )
-
-st.session_state.chat.run()
-```
-
-## Chat History
-You can save chat history to allow users to continue conversations across 
-different sessions. The `ChatCompletions` and `Assistants` classes include a 
-`save` method for this purpose. The chat history will be saved as a ZIP file. 
-Note that currently, only text content is saved -- other file types (e.g., 
-images) are not supported. Below is an example of how to save a chat history:
-
-```python
-import streamlit as st
-import streamlit_openai
-
-if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.ChatCompletions()
-    
-with st.sidebar:
-    if st.button("Save"):
-        st.session_state.chat.save("history.zip")
-
-st.session_state.chat.run()
-```
-
-After saving the chat history, you can load it in a new session by passing the 
-history parameter when initializing the `ChatCompletions` or `Assistants` 
-class. Below is an example of how to load a chat history:
-
-```python
-import streamlit as st
-import streamlit_openai
-
-if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.ChatCompletions(history="history.zip")
 
 st.session_state.chat.run()
 ```

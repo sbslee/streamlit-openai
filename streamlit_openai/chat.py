@@ -1,6 +1,6 @@
 import streamlit as st
 import openai
-import os, json, tempfile
+import os, json, tempfile, zipfile
 from pathlib import Path
 from typing import Optional, List, Union, Literal
 from .utils import Container, Block, CustomFunction
@@ -238,6 +238,24 @@ class Chat():
                     continue
                 tracked_file = TrackedFile(self, uploaded_file=uploaded_file)
                 self._tracked_files.append(tracked_file)
+
+    def save(self, file_path: str) -> None:
+        """Saves the chat history to a ZIP file."""
+        if not file_path.endswith(".zip"):
+            raise ValueError("File path must end with .zip")
+        data = {
+            "containers": [container.to_dict() for container in self._containers],
+        }
+        with tempfile.TemporaryDirectory() as t:
+            with open(f"{t}/data.json", "w") as f:
+                json.dump(data, f, indent=4)
+            with zipfile.ZipFile(file_path, "w", zipfile.ZIP_DEFLATED) as f:
+                for root, dirs, files in os.walk(t):
+                    for file in files:
+                        f.write(
+                            os.path.join(root, file),
+                            arcname=os.path.join(os.path.basename(file_path.replace(".zip", "")), file)
+                        )
 
 class TrackedFile():
     """
