@@ -322,20 +322,17 @@ st.session_state.chat.run()
 ```
 
 ### Vector Store Retrieval
-You can retrieve one or more existing vector stores by providing their IDs when
-initializing the `Assistants` class. This allows you to use pre-existing vector
-stores for searching and retrieving relevant information during the chat. Note 
-that the `vector_store_ids` parameter is only applicable when the 
-`file_search` parameter is set to `True`. Below is an example of how to 
-retrieve existing vector stores in a chat interface:
+
+To use existing vector stores in a chat, provide their IDs when initializing 
+the `Chat` class. This enables search and retrieval of relevant information. 
+Example:
 
 ```python
 import streamlit as st
 import streamlit_openai
 
 if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.Assistants(
-        file_search=True,
+    st.session_state.chat = streamlit_openai.Chat(
         vector_store_ids=["vs_...", "vs_..."]
     )
 st.session_state.chat.run()
@@ -343,19 +340,17 @@ st.session_state.chat.run()
 
 ## Code Interpreter
 
-You can allow models to run Python code in a sandboxed execution environment 
-using OpenAI’s Code Interpreter capabilities. To enable Code Interpreter, set 
-the `code_interpreter` parameter to `True` when initializing the `Assistants` 
-class. Note that this feature is available only in the Assistants API and not 
-in the Chat Completions API from OpenAI. Below is an example of how to enable 
-Code Interpreter in a chat interface:
+By default, the `Chat` class enables models to run Python code in a sandboxed 
+environment using OpenAI’s code interpreter. This supports tasks like data 
+analysis and calculations. To disable it, set `allow_code_interpreter=False` 
+when initializing `Chat`. Example:
 
 ```python
 import streamlit as st
 import streamlit_openai
 
 if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.Assistants(code_interpreter=True)
+    st.session_state.chat = streamlit_openai.Assistants(allow_code_interpreter=True)
 
 st.session_state.chat.run()
 ```
