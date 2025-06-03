@@ -45,9 +45,9 @@ class Chat():
         temperature (float): Sampling temperature for the model (default: 1.0).
         placeholder (str): Placeholder text for the chat input box (default: "Your message").
         welcome_message (str): Welcome message from the assistant.
-        uploaded_files (list): List of files to be uploaded to the assistant during initialization. Currently, only PDF files are supported.
         example_messages (list): A list of example messages for the user to choose from.
         info_message (str): Information message to be displayed in the chat.
+        uploaded_files (list): List of files to be uploaded to the assistant during initialization. Currently, only PDF files are supported.
         vector_store_ids (list): List of vector store IDs for file search. Only used if file_search is enabled.
         allow_code_interpreter (bool): Whether to allow code interpreter functionality (default: True).
         client (openai.OpenAI): The OpenAI client instance for API calls.
@@ -69,9 +69,9 @@ class Chat():
         temperature: Optional[float] = 1.0,
         placeholder: Optional[str] = "Your message",
         welcome_message: Optional[str] = None,
-        uploaded_files: Optional[List[str]] = None,
         example_messages: Optional[List[dict]] = None,
         info_message: Optional[str] = None,
+        uploaded_files: Optional[List[str]] = None,
         vector_store_ids: Optional[List[str]] = None,
         allow_code_interpreter: Optional[bool] = True,
     ) -> None:
@@ -85,9 +85,9 @@ class Chat():
         self.temperature = temperature
         self.placeholder = placeholder
         self.welcome_message = welcome_message
-        self.uploaded_files = uploaded_files
         self.example_messages = example_messages
         self.info_message = info_message
+        self.uploaded_files = uploaded_files
         self.vector_store_ids = vector_store_ids
         self.allow_code_interpreter = allow_code_interpreter
         self.client = openai.OpenAI(api_key=self.api_key)
