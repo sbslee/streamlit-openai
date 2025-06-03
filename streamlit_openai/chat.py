@@ -37,63 +37,61 @@ class Chat():
     Attributes:
         api_key (str): API key for OpenAI. If not provided, fetched from environment variable `OPENAI_API_KEY`.
         model (str): The OpenAI model used for chat completions (default: "gpt-4o").
+        instructions (str): Instructions for the assistant.
+        temperature (float): Sampling temperature for the model (default: 1.0).        
         accept_file (bool or str): Whether the chat input should accept files (True, False, or "multiple") (default: "multiple").
+        uploaded_files (list): List of files to be uploaded to the assistant during initialization. Currently, only PDF files are supported.
         functions (list): Optional list of custom function tools to be attached to the assistant.
         user_avatar (str): An emoji, image URL, or file path that represents the user.
         assistant_avatar (str): An emoji, image URL, or file path that represents the assistant.
-        instructions (str): Instructions for the assistant.
-        temperature (float): Sampling temperature for the model (default: 1.0).
         placeholder (str): Placeholder text for the chat input box (default: "Your message").
         welcome_message (str): Welcome message from the assistant.
         example_messages (list): A list of example messages for the user to choose from.
         info_message (str): Information message to be displayed in the chat.
-        uploaded_files (list): List of files to be uploaded to the assistant during initialization. Currently, only PDF files are supported.
         vector_store_ids (list): List of vector store IDs for file search. Only used if file_search is enabled.
         allow_code_interpreter (bool): Whether to allow code interpreter functionality (default: True).
-        containers (list): List to track the conversation history in structured form.
-        tracked_files (list): List of files being tracked for uploads/removals.
     """
     def __init__(
         self,
         api_key: Optional[str] = None,
         model: Optional[str] = "gpt-4o",
+        instructions: Optional[str] = None,
+        temperature: Optional[float] = 1.0,
         accept_file: Union[bool, Literal["multiple"]] = "multiple",
+        uploaded_files: Optional[List[str]] = None,
         functions: Optional[List[CustomFunction]] = None,
         user_avatar: Optional[str] = None,
         assistant_avatar: Optional[str] = None,
-        instructions: Optional[str] = None,
-        temperature: Optional[float] = 1.0,
         placeholder: Optional[str] = "Your message",
         welcome_message: Optional[str] = None,
         example_messages: Optional[List[dict]] = None,
         info_message: Optional[str] = None,
-        uploaded_files: Optional[List[str]] = None,
         vector_store_ids: Optional[List[str]] = None,
         allow_code_interpreter: Optional[bool] = True,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.model = model
+        self.instructions = "" if instructions is None else instructions
+        self.temperature = temperature
         self.accept_file = accept_file
+        self.uploaded_files = uploaded_files
         self.functions = functions
         self.user_avatar = user_avatar
         self.assistant_avatar = assistant_avatar
-        self.instructions = "" if instructions is None else instructions
-        self.temperature = temperature
         self.placeholder = placeholder
         self.welcome_message = welcome_message
         self.example_messages = example_messages
         self.info_message = info_message
-        self.uploaded_files = uploaded_files
         self.vector_store_ids = vector_store_ids
         self.allow_code_interpreter = allow_code_interpreter
-        self.containers = []
-        self.tracked_files = []
         self._client = openai.OpenAI(api_key=self.api_key)
         self._temp_dir = tempfile.TemporaryDirectory()
         self._selected_example = None
         self._input = []
         self._tools = []
         self._previous_response_id = None
+        self._containers = []
+        self._tracked_files = []
 
         if self.allow_code_interpreter:
             self._tools.append({"type": "code_interpreter", "container": {"type": "auto"}})
@@ -113,7 +111,7 @@ class Chat():
         # If a welcome message is provided, add it to the chat history
         if self.welcome_message is not None:
             self._input.append({"role": "assistant", "content": self.welcome_message})
-            self.containers.append(
+            self._containers.append(
                 Container(self, "assistant", blocks=[Block(self, "text", self.welcome_message)])
             )
 
@@ -121,16 +119,16 @@ class Chat():
         if self.uploaded_files is not None:
             for uploaded_file in self.uploaded_files:
                 tracked_file = TrackedFile(self, uploaded_file)
-                self.tracked_files.append(tracked_file)
+                self._tracked_files.append(tracked_file)
 
     @property
     def last_container(self) -> Optional[Container]:
-        return self.containers[-1] if self.containers else None
+        return self._containers[-1] if self._containers else None
 
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
         self._input.append({"role": "user", "content": prompt})
-        self.containers.append(Container(self, "assistant"))
+        self._containers.append(Container(self, "assistant"))
         events1 = self._client.responses.create(
             model=self.model,
             input=self._input,
@@ -190,7 +188,7 @@ class Chat():
         """Runs the main assistant loop: handles user messages."""
         if self.info_message is not None:
             st.info(self.info_message)
-        for container in self.containers:
+        for container in self._containers:
             container.write()
         chat_input = st.chat_input(placeholder=self.placeholder, accept_file=self.accept_file)
         if chat_input is not None:
@@ -205,7 +203,7 @@ class Chat():
                 prompt = chat_input
             with st.chat_message("user"):
                 st.markdown(prompt)
-            self.containers.append(
+            self._containers.append(
                 Container(self, "user", blocks=[Block(self, "text", prompt)])
             )
             self.handle_files(uploaded_files)
@@ -224,7 +222,7 @@ class Chat():
                 else:
                     with st.chat_message("user"):
                             st.markdown(self._selected_example)
-                    self.containers.append(
+                    self._containers.append(
                         Container(self, "user", blocks=[Block(self, "text", self._selected_example)])
                     )
                     self.respond(self._selected_example)
@@ -236,10 +234,10 @@ class Chat():
             return
         else:
             for uploaded_file in uploaded_files:
-                if uploaded_file.file_id in [x.uploaded_file.file_id for x in self.tracked_files]:
+                if uploaded_file.file_id in [x.uploaded_file.file_id for x in self._tracked_files]:
                     continue
                 tracked_file = TrackedFile(self, uploaded_file=uploaded_file)
-                self.tracked_files.append(tracked_file)
+                self._tracked_files.append(tracked_file)
 
 class TrackedFile():
     """
