@@ -174,7 +174,11 @@ class Chat():
             elif event1.type == "response.output_item.done":
                 if event1.item.type == "function_call":
                     tool_calls[event1.item.name] = event1
-                elif event1.item.type == "message" and event1.item.content and event1.item.content[0].annotations:
+                elif event1.item.type == "message":
+                    if event1.item.content is None:
+                        continue
+                    if getattr(event1.item.content[0], "annotations", None) is None:
+                        continue
                     for annotation in event1.item.content[0].annotations:
                         if annotation.type == "container_file_citation":
                              if Path(annotation.filename).suffix in [".png", ".jpg", ".jpeg"]:
@@ -182,7 +186,9 @@ class Chat():
                                     file_id=annotation.file_id,
                                     container_id=annotation.container_id
                                 )
-                                self.last_container.update_and_stream("image", image_content.read())
+                                self.last_container.update_and_stream("image", image_content.read()) 
+                    self.last_container.update_and_stream("text", event1.item.content[0].text)                  
+
         if tool_calls:
             for tool in tool_calls:
                 function = [x for x in self.functions if x.name == tool][0]
