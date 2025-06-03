@@ -93,11 +93,14 @@ class Chat():
         self._input = []
         self._tools = []
         self._previous_response_id = None
+        self._container_id = None
         self._sections = []
         self._tracked_files = []
 
         if self.allow_code_interpreter:
-            self._tools.append({"type": "code_interpreter", "container": {"type": "auto"}})
+            container = self._client.containers.create(name="container")
+            self._container_id = container.id
+            self._tools.append({"type": "code_interpreter", "container": self._container_id})
 
         if self.functions is not None:
             for function in self.functions:
@@ -124,7 +127,7 @@ class Chat():
                 tracked_file = TrackedFile(self, uploaded_file)
                 self._tracked_files.append(tracked_file)
 
-        # If ㅁ chat history file is provided, load the chat history
+        # If a chat history file is provided, load the chat history
         if self.history is not None:
             if not self.history.endswith(".zip"):
                 raise ValueError("History file must end with .zip")
@@ -185,8 +188,8 @@ class Chat():
                                 image_content = self._client.containers.files.content.retrieve(
                                     file_id=annotation.file_id,
                                     container_id=annotation.container_id
-                                )
-                                self.last_section.update_and_stream("image", image_content.read()) 
+                                )                                
+                                self.last_section.update_and_stream("image", image_content.read())
 
         if tool_calls:
             for tool in tool_calls:
