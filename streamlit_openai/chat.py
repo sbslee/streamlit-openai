@@ -96,6 +96,7 @@ class Chat():
         self._container_id = None
         self._sections = []
         self._tracked_files = []
+        self._download_button_key = 0
 
         if self.allow_code_interpreter:
             container = self._client.containers.create(name="container")
@@ -174,23 +175,16 @@ class Chat():
                 self.last_section.update_and_stream("text", event1.delta)
             elif event1.type == "response.code_interpreter_call_code.delta":
                 self.last_section.update_and_stream("code", event1.delta)
-            elif event1.type == "response.output_item.done":
-                if event1.item.type == "function_call":
-                    tool_calls[event1.item.name] = event1
-                elif event1.item.type == "message":
-                    if event1.item.content is None:
-                        continue
-                    if getattr(event1.item.content[0], "annotations", None) is None:
-                        continue
-                    for annotation in event1.item.content[0].annotations:
-                        if annotation.type == "container_file_citation":
-                             if Path(annotation.filename).suffix in [".png", ".jpg", ".jpeg"]:
-                                image_content = self._client.containers.files.content.retrieve(
-                                    file_id=annotation.file_id,
-                                    container_id=annotation.container_id
-                                )                                
-                                self.last_section.update_and_stream("image", image_content.read())
-
+            elif event1.type == "response.output_text.annotation.added":
+                if event1.annotation["file_id"] in event1.annotation["filename"]:
+                    if Path(event1.annotation["filename"]).suffix in [".png", ".jpg", ".jpeg"]:
+                        image_content = self._client.containers.files.content.retrieve(
+                            file_id=event1.annotation["file_id"],
+                            container_id=self._container_id
+                        )
+                        self.last_section.update_and_stream("image", image_content.read())
+                else:
+                    self.last_section.update_and_stream("download", event1.annotation["file_id"])
         if tool_calls:
             for tool in tool_calls:
                 function = [x for x in self.functions if x.name == tool][0]

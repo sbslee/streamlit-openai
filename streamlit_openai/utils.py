@@ -77,17 +77,25 @@ class Block():
         elif self.category == "image":
             st.image(self.content)
         elif self.category == "download":
-            filename = os.path.basename(self.content.filename)
+            cfile_content = self.chat._client.containers.files.content.retrieve(
+                file_id=self.content,
+                container_id=self.chat._container_id
+            )
+            cfile = self.chat._client.containers.files.retrieve(
+                file_id=self.content,
+                container_id=self.chat._container_id                
+            )
+            filename = os.path.basename(cfile.path)
             _, file_extension = os.path.splitext(filename)
             st.download_button(
                 label=filename,
-                data=self.chat.client.files.content(self.content.id).read(),
+                data=cfile_content.read(),
                 file_name=filename,
                 mime=MIME_TYPES[file_extension.lstrip(".")],
                 icon=":material/download:",
-                key=self.chat.download_button_key,
+                key=self.chat._download_button_key,
             )
-            self.chat.download_button_key += 1
+            self.chat._download_button_key += 1
 
     def to_dict(self) -> Dict[str, Any]:
         """Converts the block to a dictionary representation."""
