@@ -1,6 +1,6 @@
 import streamlit as st
 import openai
-import os, json, tempfile, zipfile
+import os, json, re, tempfile, zipfile
 from pathlib import Path
 from typing import Optional, List, Union, Literal
 from .utils import Section, Block, CustomFunction
@@ -174,6 +174,7 @@ class Chat():
                 self._previous_response_id = event1.response.id
             elif event1.type == "response.output_text.delta":
                 self.last_section.update_and_stream("text", event1.delta)
+                self.last_section.last_block.content = re.sub(r"!?\[([^\]]+)\]\(sandbox:/mnt/data/([^\)]+)\)", r"\1 (`\2`)", self.last_section.last_block.content)
             elif event1.type == "response.code_interpreter_call_code.delta":
                 self.last_section.update_and_stream("code", event1.delta)
             elif event1.type == "response.output_item.done" and event1.item.type == "function_call":   
