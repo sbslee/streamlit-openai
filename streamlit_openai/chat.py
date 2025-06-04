@@ -9,6 +9,7 @@ from streamlit.runtime.uploaded_file_manager import UploadedFile
 DEVELOPER_MESSAGE = """
 - Use GitHub-flavored Markdown in your response, including tables, images, URLs, code blocks, and lists.
 - Wrap all mathematical expressions and LaTeX terms in `$...$` for inline math and `$$...$$` for display math.
+- When a custom function is called with a file path as its input, you must use the local file path.
 """
 
 CODE_INTERPRETER_EXTENSIONS = [
