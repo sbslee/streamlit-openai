@@ -180,15 +180,18 @@ class Chat():
             elif event1.type == "response.output_item.done" and event1.item.type == "function_call":   
                 tool_calls[event1.item.name] = event1
             elif event1.type == "response.output_text.annotation.added":
-                if event1.annotation["file_id"] in event1.annotation["filename"]:
-                    if Path(event1.annotation["filename"]).suffix in [".png", ".jpg", ".jpeg"]:
-                        image_content = self._client.containers.files.content.retrieve(
-                            file_id=event1.annotation["file_id"],
-                            container_id=self._container_id
-                        )
-                        self.last_section.update_and_stream("image", image_content.read())
-                else:
-                    self.last_section.update_and_stream("download", event1.annotation["file_id"])
+                if event1.annotation["type"] == "file_citation":
+                    pass
+                elif event1.annotation["type"] == "container_file_citation":                
+                    if event1.annotation["file_id"] in event1.annotation["filename"]:
+                        if Path(event1.annotation["filename"]).suffix in [".png", ".jpg", ".jpeg"]:
+                            image_content = self._client.containers.files.content.retrieve(
+                                file_id=event1.annotation["file_id"],
+                                container_id=self._container_id
+                            )
+                            self.last_section.update_and_stream("image", image_content.read())
+                    else:
+                        self.last_section.update_and_stream("download", event1.annotation["file_id"])
         if tool_calls:
             for tool in tool_calls:
                 function = [x for x in self.functions if x.name == tool][0]
@@ -324,7 +327,7 @@ class TrackedFile():
 
         if self.file_path.suffix in CODE_INTERPRETER_EXTENSIONS:
             with open(self.file_path, "rb") as f:
-                openai_file = self.chat._client.files.create(file=f, purpose="assistants")
+                openai_file = self.chat._client.files.create(file=f, purpose="user_data")
             self.chat._client.containers.files.create(
                 container_id=self.chat._container_id,
                 file_id=openai_file.id,
@@ -353,8 +356,8 @@ class TrackedFile():
             else:
                 for tool in self.chat._tools:
                     if tool["type"] == "file_search":
-                        if self.vector_store.id not in tool["vector_store_ids"]:
-                            tool["vector_store_ids"].append(self.vector_store.id)
+                        if vector_store.id not in tool["vector_store_ids"]:
+                            tool["vector_store_ids"].append(vector_store.id)
                         break
                 else:
                     self.chat._tools.append({"type": "file_search", "vector_store_ids": [vector_store.id]})
