@@ -213,10 +213,8 @@ if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.Chat(
         functions=[transcribe_audio],
     )
-
-uploaded_files = st.sidebar.file_uploader("Upload Files", accept_multiple_files=True)
-
-st.session_state.chat.run(uploaded_files=uploaded_files)
+    
+st.session_state.chat.run()
 ```
 
 ## File Inputs

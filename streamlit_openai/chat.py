@@ -176,6 +176,8 @@ class Chat():
                 self.last_section.update_and_stream("text", event1.delta)
             elif event1.type == "response.code_interpreter_call_code.delta":
                 self.last_section.update_and_stream("code", event1.delta)
+            elif event1.type == "response.output_item.done" and event1.item.type == "function_call":   
+                tool_calls[event1.item.name] = event1
             elif event1.type == "response.output_text.annotation.added":
                 if event1.annotation["file_id"] in event1.annotation["filename"]:
                     if Path(event1.annotation["filename"]).suffix in [".png", ".jpg", ".jpeg"]:
