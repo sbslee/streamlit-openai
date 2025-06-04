@@ -322,9 +322,18 @@ class TrackedFile():
             {"role": "user", "content": [{"type": "input_text", "text": f"File locally available at: {self.file_path}"}]}
         )
 
-        if self.file_path.suffix in FILE_SEARCH_EXTENSIONS:
+        if self.file_path.suffix in CODE_INTERPRETER_EXTENSIONS:
             with open(self.file_path, "rb") as f:
                 openai_file = self.chat._client.files.create(file=f, purpose="assistants")
+            self.chat._client.containers.files.create(
+                container_id=self.chat._container_id,
+                file_id=openai_file.id,
+            )
+            self.data["code_interpreter"] = {"file_id": openai_file.id}
+
+        if self.file_path.suffix in FILE_SEARCH_EXTENSIONS:
+            with open(self.file_path, "rb") as f:
+                openai_file = self.chat._client.files.create(file=f, purpose="user_data")
             vector_store = self.chat._client.vector_stores.create()
             self.chat._client.vector_stores.files.create(
                 vector_store_id=vector_store.id,
