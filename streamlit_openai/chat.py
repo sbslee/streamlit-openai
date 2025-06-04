@@ -351,16 +351,13 @@ class TrackedFile():
                     vector_store_id=vector_store.id,
                     file_id=openai_file.id,
                 )
-            if not self.chat._tools:
-                self.chat._tools.append({"type": "file_search", "vector_store_ids": [vector_store.id]})
+            for tool in self.chat._tools:
+                if tool["type"] == "file_search":
+                    if vector_store.id not in tool["vector_store_ids"]:
+                        tool["vector_store_ids"].append(vector_store.id)
+                    break
             else:
-                for tool in self.chat._tools:
-                    if tool["type"] == "file_search":
-                        if vector_store.id not in tool["vector_store_ids"]:
-                            tool["vector_store_ids"].append(vector_store.id)
-                        break
-                else:
-                    self.chat._tools.append({"type": "file_search", "vector_store_ids": [vector_store.id]})
+                self.chat._tools.append({"type": "file_search", "vector_store_ids": [vector_store.id]})
             self.data["file_search"] = {"file_id": openai_file.id, "vector_store_id": vector_store.id}
 
         if self.file_path.suffix in VISION_EXTENSIONS:
