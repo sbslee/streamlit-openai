@@ -1,3 +1,3 @@
 from . import utils
-from .chat_completions import ChatCompletions
-from .assistants import Assistants
+from .utils import CustomFunction
+from .chat import Chat

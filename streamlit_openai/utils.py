@@ -77,17 +77,25 @@ class Block():
         elif self.category == "image":
             st.image(self.content)
         elif self.category == "download":
-            filename = os.path.basename(self.content.filename)
+            cfile_content = self.chat._client.containers.files.content.retrieve(
+                file_id=self.content,
+                container_id=self.chat._container_id
+            )
+            cfile = self.chat._client.containers.files.retrieve(
+                file_id=self.content,
+                container_id=self.chat._container_id                
+            )
+            filename = os.path.basename(cfile.path)
             _, file_extension = os.path.splitext(filename)
             st.download_button(
                 label=filename,
-                data=self.chat.client.files.content(self.content.id).read(),
+                data=cfile_content.read(),
                 file_name=filename,
                 mime=MIME_TYPES[file_extension.lstrip(".")],
                 icon=":material/download:",
-                key=self.chat.download_button_key,
+                key=self.chat._download_button_key,
             )
-            self.chat.download_button_key += 1
+            self.chat._download_button_key += 1
 
     def to_dict(self) -> Dict[str, Any]:
         """Converts the block to a dictionary representation."""
@@ -102,9 +110,9 @@ class Block():
             "content": content,
         }
 
-class Container():
+class Section():
     """
-    Represents a single message container in a Streamlit chat interface, 
+    Represents a single message section in a Streamlit chat interface, 
     managing role-based message blocks and real-time updates.
 
     This class holds a sequence of message blocks (e.g., text, code, image) 
@@ -129,20 +137,20 @@ class Container():
         self.delta_generator = st.empty()
         
     def __repr__(self) -> None:
-        return f"Container(role='{self.role}', blocks={self.blocks})"
+        return f"Section(role='{self.role}', blocks={self.blocks})"
 
     @property
     def empty(self) -> bool:
-        """Returns True if the container has no blocks."""
+        """Returns True if the section has no blocks."""
         return self.blocks is None
 
     @property
     def last_block(self) -> Optional[Block]:
-        """Returns the last block in the container or None if empty."""
+        """Returns the last block in the section or None if empty."""
         return None if self.empty else self.blocks[-1]
 
     def update(self, category, content) -> None:
-        """Updates the container with new content, appending or extending existing blocks."""
+        """Updates the section with new content, appending or extending existing blocks."""
         if self.empty:
             self.blocks = [Block(self.chat, category, content)]
         elif category in ["text", "code"] and self.last_block.iscategory(category):
@@ -151,7 +159,7 @@ class Container():
             self.blocks.append(Block(self.chat, category, content))
 
     def write(self) -> None:
-        """Renders the container's content in the Streamlit chat interface."""
+        """Renders the section's content in the Streamlit chat interface."""
         if self.empty:
             pass
         else:
@@ -160,17 +168,17 @@ class Container():
                     block.write()
 
     def update_and_stream(self, category, content) -> None:
-        """Updates the container and streams the update live to the UI."""
+        """Updates the section and streams the update live to the UI."""
         self.update(category, content)
         self.stream()
 
     def stream(self) -> None:
-        """Renders the container content using Streamlit's delta generator."""
+        """Renders the section content using Streamlit's delta generator."""
         with self.delta_generator:
             self.write()
 
     def to_dict(self) -> Dict[str, Any]:
-        """Converts the container to a dictionary representation."""
+        """Converts the section to a dictionary representation."""
         if self.empty:
             return {}
         else:
@@ -181,23 +189,25 @@ class Container():
 
 class CustomFunction():
     """
-    Represents a user-defined function and its corresponding OpenAI function 
-    definition.
-
-    This class wraps a callable Python function with metadata in the format 
-    expected by OpenAI's function-calling tools.
+    Represents a custom function that can be invoked by the OpenAI API.
 
     Attributes:
-        definition (dict): The OpenAI-compatible function schema/definition.
-        function (Callable): The actual Python function to be executed when invoked.
+        name (str): The name of the function.
+        description (str): A brief description of what the function does.
+        parameters (Dict[str, Any]): The parameters required by the function.
+        handler (Callable): The actual Python function to be executed.
     """
     def __init__(
             self,
-            definition: Dict[str, Any],
-            function: Callable,
+            name: str,
+            description: str,
+            parameters: Dict[str, Any],
+            handler: Callable,
     ) -> None:
-        self.definition = definition
-        self.function = function
+        self.name = name
+        self.description = description
+        self.parameters = parameters
+        self.handler = handler
 
-    def __repr__(self) -> None:
-        return f"CustomFunction(definition='{self.definition}')"
+    def __repr__(self) -> str:
+        return f"CustomFunction(definition='{self.name}')"
