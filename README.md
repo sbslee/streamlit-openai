@@ -292,7 +292,7 @@ import streamlit_openai
 
 if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.Chat(
-        message_files=["example.jpeg"]
+        uploaded_files=["example.jpeg"]
     )
 
 st.session_state.chat.run()
@@ -313,7 +313,7 @@ import streamlit_openai
 
 if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.Chat(
-        message_files=["example.pdf"]
+        uploaded_files=["example.pdf"]
     )
 
 st.session_state.chat.run()
