@@ -322,8 +322,9 @@ st.session_state.chat.run()
 ### Vector Store Retrieval
 
 To use existing vector stores in a chat, provide their IDs when initializing 
-the `Chat` class. This enables search and retrieval of relevant information. 
-Example:
+the `Chat` class. This enables the search and retrieval of relevant 
+information. Note that OpenAI's file search currently allows a maximum of two 
+vector stores to be used simultaneously. Example:
 
 ```python
 import streamlit as st
