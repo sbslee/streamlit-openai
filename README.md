@@ -304,10 +304,21 @@ st.session_state.chat.run()
 The `Chat` class supports file search capabilities, enabling the assistant to 
 search through uploaded files and retrieve relevant information during a 
 conversation. To disable it, set `allow_file_search=False` when initializing 
-`Chat`. The following file formats are currently supported: `.c`, `.cpp`, 
-`.cs`, `.css`, `.doc`, `.docx`, `.go`, `.html`, `.java`, `.js`, `.json`, 
-`.md`, `.pdf`, `.php`, `.pptx`, `.py`, `.rb`, `.sh`, `.tex`, `.ts`, and 
-`.txt`. Below is an example:
+`Chat`.
+
+The following file formats are currently supported: `.c`, `.cpp`, `.cs`, 
+`.css`, `.doc`, `.docx`, `.go`, `.html`, `.java`, `.js`, `.json`, `.md`, 
+`.pdf`, `.php`, `.pptx`, `.py`, `.rb`, `.sh`, `.tex`, `.ts`, and `.txt`.
+
+When the user uploads one or more files, a new vector store is created, and 
+the files are indexed for search. If additional files are uploaded later, the 
+existing vector store is updated with the new files.
+
+Note that OpenAI's file search currently supports a maximum of two vector 
+stores in use simultaneously. See 
+[Vector Store Retrieval](#vector-store-retrieval) for more details.
+
+Below is an example:
 
 ```python
 import streamlit as st
@@ -327,8 +338,12 @@ st.session_state.chat.run()
 
 To use existing vector stores in a chat, provide their IDs when initializing 
 the `Chat` class. This enables the search and retrieval of relevant 
-information. Note that OpenAI's file search currently allows a maximum of two 
-vector stores to be used simultaneously. Example:
+information.
+
+Note that OpenAI's file search currently allows a maximum of two vector stores 
+to be used simultaneously.
+
+Example:
 
 ```python
 import streamlit as st
