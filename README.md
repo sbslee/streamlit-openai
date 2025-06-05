@@ -74,6 +74,20 @@ Run the app:
 $ streamlit run app.py
 ```
 
+You can delete all vector stores, files, or both associated with the exported 
+API key using the command-line interface:
+
+```sh
+$ streamlit-openai -h                 
+usage: streamlit-openai [-h] {clear-vector-stores,clear-files,clear-all}
+
+positional arguments:
+  {clear-vector-stores,clear-files,clear-all}
+
+options:
+  -h, --help            show this help message and exit
+```
+
 # Schematic Diagram
 
 The following diagram illustrates the `Section` and `Block` classes used

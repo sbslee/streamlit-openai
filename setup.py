@@ -15,5 +15,6 @@ setup(
     packages=find_packages(),
     license="MIT",
     long_description=long_description,
-    long_description_content_type="text/markdown"
+    long_description_content_type="text/markdown",
+    entry_points={'console_scripts': ['streamlit-openai=streamlit_openai.__main__:main']}
 )
