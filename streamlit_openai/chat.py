@@ -318,6 +318,7 @@ class TrackedFile():
         self.file_path = None
         self._openai_file = None
         self._vision_file = None
+        self._skip_file_search = False
 
         if isinstance(self.uploaded_file, str):
             self.file_path = Path(self.uploaded_file).resolve()
@@ -332,6 +333,27 @@ class TrackedFile():
             {"role": "user", "content": [{"type": "input_text", "text": f"File locally available at: {self.file_path}"}]}
         )
 
+        if self.file_path.suffix == ".pdf":
+            if self._openai_file is None:
+                with open(self.file_path, "rb") as f:
+                    self._openai_file = self.chat._client.files.create(file=f, purpose="user_data")
+            try:
+                # Test if the PDF file can be processed
+                response = self.chat._client.responses.create(
+                    model=self.chat.model,
+                    input=[{
+                        "role": "user",
+                        "content": [{"type": "input_file", "file_id": self._openai_file.id
+                    }]}]
+                )
+                self.chat._input.append({
+                    "role": "user",
+                    "content": [{"type": "input_file", "file_id": self._openai_file.id}]
+                })
+                self._skip_file_search = True
+            except Exception as e:
+                pass
+
         if self.chat.allow_code_interpreter and self.file_path.suffix in CODE_INTERPRETER_EXTENSIONS:
             if self._openai_file is None:
                 with open(self.file_path, "rb") as f:
@@ -341,7 +363,7 @@ class TrackedFile():
                 file_id=self._openai_file.id,
             )
 
-        if self.chat.allow_file_search and self.file_path.suffix in FILE_SEARCH_EXTENSIONS:
+        if self.chat.allow_file_search and not self._skip_file_search and self.file_path.suffix in FILE_SEARCH_EXTENSIONS:
             if self._openai_file is None:
                 with open(self.file_path, "rb") as f:
                     self._openai_file = self.chat._client.files.create(file=f, purpose="user_data")
