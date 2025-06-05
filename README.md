@@ -302,10 +302,11 @@ st.session_state.chat.run()
 
 The `Chat` class supports file search capabilities, enabling the assistant to 
 search through uploaded files and retrieve relevant information during a 
-conversation. The following file formats are currently supported: `.c`, 
-`.cpp`, `.cs`, `.css`, `.doc`, `.docx`, `.go`, `.html`, `.java`, `.js`, 
-`.json`, `.md`, `.pdf`, `.php`, `.pptx`, `.py`, `.rb`, `.sh`, `.tex`, `.ts`, 
-and `.txt`. Below is an example:
+conversation. To disable it, set `allow_file_search=False` when initializing 
+`Chat`. The following file formats are currently supported: `.c`, `.cpp`, 
+`.cs`, `.css`, `.doc`, `.docx`, `.go`, `.html`, `.java`, `.js`, `.json`, 
+`.md`, `.pdf`, `.php`, `.pptx`, `.py`, `.rb`, `.sh`, `.tex`, `.ts`, and 
+`.txt`. Below is an example:
 
 ```python
 import streamlit as st
@@ -313,7 +314,9 @@ import streamlit_openai
 
 if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.Chat(
-        uploaded_files=["example.pdf"]
+        allow_file_search=True,   # Enable file search (default)
+        # allow_file_search=False # Disable it
+        uploaded_files=["example.docx"]
     )
 
 st.session_state.chat.run()
@@ -342,14 +345,21 @@ st.session_state.chat.run()
 By default, the `Chat` class enables models to run Python code in a sandboxed 
 environment using OpenAI’s code interpreter. This supports tasks like data 
 analysis and calculations. To disable it, set `allow_code_interpreter=False` 
-when initializing `Chat`. Example:
+when initializing `Chat`. The following file formats are currently supported: 
+`.c`, `.cs`, `.cpp`, `.csv`, `.doc`, `.docx`, `.html`, `.java`, `.json`, 
+`.md`, `.pdf`, `.php`, `.pptx`, `.py`, `.rb`, `.tex`, `.txt`, `.css`, `.js`, 
+`.sh`, `.ts`, `.csv`, `.jpeg`, `.jpg`, `.gif`, `.pkl`, `.png`, `.tar`, 
+`.xlsx`, `.xml`, and `.zip`. Example:
 
 ```python
 import streamlit as st
 import streamlit_openai
 
 if "chat" not in st.session_state:
-    st.session_state.chat = streamlit_openai.Chat(allow_code_interpreter=True)
+    st.session_state.chat = streamlit_openai.Chat(
+        allow_code_interpreter=True    # Enable code interpreter (default)
+        # allow_code_interpreter=False # Disable it
+    )
 
 st.session_state.chat.run()
 ```

@@ -52,6 +52,7 @@ class Chat():
         vector_store_ids (list): List of vector store IDs for file search. Only used if file_search is enabled.
         history (str): File path to the chat history ZIP file. If provided, the chat history will be loaded from this file.
         allow_code_interpreter (bool): Whether to allow code interpreter functionality (default: True).
+        allow_file_search (bool): Whether to allow file search functionality (default: True).
     """
     def __init__(
         self,
@@ -71,6 +72,7 @@ class Chat():
         vector_store_ids: Optional[List[str]] = None,
         history: Optional[str] = None,
         allow_code_interpreter: Optional[bool] = True,
+        allow_file_search: Optional[bool] = True,
     ) -> None:
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.model = model
@@ -88,6 +90,7 @@ class Chat():
         self.vector_store_ids = vector_store_ids
         self.history = history
         self.allow_code_interpreter = allow_code_interpreter
+        self.allow_file_search = allow_file_search
         self._client = openai.OpenAI(api_key=self.api_key)
         self._temp_dir = tempfile.TemporaryDirectory()
         self._selected_example = None
@@ -115,7 +118,7 @@ class Chat():
                 })
 
         # File search currently allows a maximum of two vector stores
-        if self.vector_store_ids is not None:
+        if allow_file_search and self.vector_store_ids is not None:
             self._tools.append({
                 "type": "file_search",
                 "vector_store_ids": self.vector_store_ids
@@ -325,7 +328,6 @@ class TrackedFile():
         else:
             raise ValueError("uploaded_file must be an instance of UploadedFile or a string representing the file path.")
 
-
         self.chat._input.append(
             {"role": "user", "content": [{"type": "input_text", "text": f"File locally available at: {self.file_path}"}]}
         )
@@ -339,7 +341,7 @@ class TrackedFile():
                 file_id=self._openai_file.id,
             )
 
-        if self.file_path.suffix in FILE_SEARCH_EXTENSIONS:
+        if self.chat.allow_file_search and self.file_path.suffix in FILE_SEARCH_EXTENSIONS:
             if self._openai_file is None:
                 with open(self.file_path, "rb") as f:
                     self._openai_file = self.chat._client.files.create(file=f, purpose="user_data")
