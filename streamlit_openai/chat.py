@@ -98,6 +98,7 @@ class Chat():
         self._sections = []
         self._tracked_files = []
         self._download_button_key = 0
+        self._dynamic_vector_store = None
 
         if self.allow_code_interpreter:
             container = self._client.containers.create(name="container")
@@ -113,8 +114,12 @@ class Chat():
                     "parameters": function.parameters,
                 })
 
+        # File search currently allows a maximum of two vector stores
         if self.vector_store_ids is not None:
-            self._tools.append({"type": "file_search", "vector_store_ids": self.vector_store_ids})
+            self._tools.append({
+                "type": "file_search",
+                "vector_store_ids": self.vector_store_ids
+            })
 
         # If a welcome message is provided, add it to the chat history
         if self.welcome_message is not None:
@@ -309,7 +314,6 @@ class TrackedFile():
         self.uploaded_file = uploaded_file
         self.file_path = None
         self._openai_file = None
-        self._vector_store = None
         self._vision_file = None
 
         if isinstance(self.uploaded_file, str):
@@ -339,27 +343,33 @@ class TrackedFile():
             if self._openai_file is None:
                 with open(self.file_path, "rb") as f:
                     self._openai_file = self.chat._client.files.create(file=f, purpose="user_data")
-            self._vector_store = self.chat._client.vector_stores.create()
+            if self.chat._dynamic_vector_store is None:
+                self.chat._dynamic_vector_store = self.chat._client.vector_stores.create(
+                    name="streamlit-openai"
+                )
             self.chat._client.vector_stores.files.create(
-                vector_store_id=self._vector_store.id,
+                vector_store_id=self.chat._dynamic_vector_store.id,
                 file_id=self._openai_file.id
             )
             result = self.chat._client.vector_stores.files.retrieve(
-                vector_store_id=self._vector_store.id,
+                vector_store_id=self.chat._dynamic_vector_store.id,
                 file_id=self._openai_file.id,
             )
             while result.status != "completed":
                 result = self.chat._client.vector_stores.files.retrieve(
-                    vector_store_id=self._vector_store.id,
+                    vector_store_id=self.chat._dynamic_vector_store.id,
                     file_id=self._openai_file.id,
                 )
             for tool in self.chat._tools:
                 if tool["type"] == "file_search":
-                    if self._vector_store.id not in tool["vector_store_ids"]:
-                        tool["vector_store_ids"].append(self._vector_store.id)
+                    if self.chat._dynamic_vector_store.id not in tool["vector_store_ids"]:
+                        tool["vector_store_ids"].append(self.chat._dynamic_vector_store.id)
                     break
             else:
-                self.chat._tools.append({"type": "file_search", "vector_store_ids": [self._vector_store.id]})
+                self.chat._tools.append({
+                    "type": "file_search",
+                    "vector_store_ids": [self.chat._dynamic_vector_store.id]
+                })
 
         if self.file_path.suffix in VISION_EXTENSIONS:
             self._vision_file = self.chat._client.files.create(file=self.file_path, purpose="vision")
