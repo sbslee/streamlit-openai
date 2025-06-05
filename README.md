@@ -336,12 +336,21 @@ st.session_state.chat.run()
 
 ### Vector Store Retrieval
 
-To use existing vector stores in a chat, provide their IDs when initializing 
-the `Chat` class. This enables the search and retrieval of relevant 
-information.
+If you already have existing vector stores created using the OpenAI API, you 
+can use them in the chat interface. This is particularly useful for retrieving 
+relevant information from previously indexed files without needing to 
+re-upload them -- especially if the files are large or numerous.
 
-Note that OpenAI's file search currently allows a maximum of two vector stores 
-to be used simultaneously.
+To use existing vector stores in a chat, provide their IDs when initializing 
+the `Chat` class. This enables the system to search and retrieve relevant 
+information from those stores.
+
+Note that OpenAI's file search currently supports a maximum of two vector 
+stores at a time, meaning you can provide up to two vector store IDs. However, 
+if you specify two vector store IDs, you won’t be able to upload new files. 
+This is by design -- existing vector stores are not updated because they are 
+presumably important and shared across applications, and modifying them could 
+lead to unintended issues.
 
 Example:
 
@@ -384,7 +393,8 @@ st.session_state.chat.run()
 
 You can save chat history to let users resume conversations across sessions. 
 Use the `Chat` class’s `save` method to save history as a ZIP file. Currently, 
-only text is saved—other file types (e.g., images) are not supported. Example:
+only text is saved -- other file types (e.g., images) are not supported. 
+Example:
 
 ```python
 import streamlit as st
