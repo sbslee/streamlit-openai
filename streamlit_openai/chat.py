@@ -330,7 +330,7 @@ class TrackedFile():
             {"role": "user", "content": [{"type": "input_text", "text": f"File locally available at: {self.file_path}"}]}
         )
 
-        if self.file_path.suffix in CODE_INTERPRETER_EXTENSIONS:
+        if self.chat.allow_code_interpreter and self.file_path.suffix in CODE_INTERPRETER_EXTENSIONS:
             if self._openai_file is None:
                 with open(self.file_path, "rb") as f:
                     self._openai_file = self.chat._client.files.create(file=f, purpose="user_data")
