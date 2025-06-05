@@ -32,6 +32,7 @@ Here’s a quick overview of the package’s key features:
     - [Vector Store Retrieval](#vector-store-retrieval)
   - [Code Interpreter](#code-interpreter)
   - [Chat History](#chat-history)
+  - [Storage Management](#storage-management)
 - [Customization](#customization)
   - [Model Selection](#model-selection)
   - [Temperature](#temperature)
@@ -72,20 +73,6 @@ Run the app:
 
 ```sh
 $ streamlit run app.py
-```
-
-You can delete all vector stores, files, or both associated with the exported 
-API key using the command-line interface:
-
-```sh
-$ streamlit-openai -h                 
-usage: streamlit-openai [-h] {clear-vector-stores,clear-files,clear-all}
-
-positional arguments:
-  {clear-vector-stores,clear-files,clear-all}
-
-options:
-  -h, --help            show this help message and exit
 ```
 
 # Schematic Diagram
@@ -409,6 +396,22 @@ if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.Chat(history="history.zip")
 
 st.session_state.chat.run()
+```
+
+## Storage Management
+
+You can delete all vector stores, files, or both associated with the exported 
+API key using the command-line interface:
+
+```sh
+$ streamlit-openai -h                 
+usage: streamlit-openai [-h] {clear-vector-stores,clear-files,clear-all}
+
+positional arguments:
+  {clear-vector-stores,clear-files,clear-all}
+
+options:
+  -h, --help            show this help message and exit
 ```
 
 # Customization
