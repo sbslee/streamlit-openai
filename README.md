@@ -29,6 +29,7 @@ Here’s a quick overview of the package’s key features:
     - [File Uploader Widget](#file-uploader-widget)
   - [Vision](#vision)
   - [File Search](#file-search)
+    - [PDF Vision Support](#pdf-vision-support)
     - [Vector Store Retrieval](#vector-store-retrieval)
   - [Code Interpreter](#code-interpreter)
   - [Chat History](#chat-history)
@@ -283,6 +284,7 @@ st.session_state.chat.run(uploaded_files=uploaded_files)
 ```
 
 ## Vision
+
 The `Chat` class supports OpenAI’s vision capabilities, allowing image input 
 to be processed within a chat. Currently, the following image formats are 
 supported: `.png`, `.jpeg`, `.jpg`, `.webp`, and `.gif`. Here’s an example:
@@ -310,6 +312,10 @@ The following file formats are currently supported: `.c`, `.cpp`, `.cs`,
 `.css`, `.doc`, `.docx`, `.go`, `.html`, `.java`, `.js`, `.json`, `.md`, 
 `.pdf`, `.php`, `.pptx`, `.py`, `.rb`, `.sh`, `.tex`, `.ts`, and `.txt`.
 
+It's notewordthy that the file search feature doesn't support image 
+processing, except for PDFs, which can be processed using OpenAI's vision. 
+See [PDF Vision Support](#pdf-vision-support) for more details.
+
 When the user uploads one or more files, a new vector store is created, and 
 the files are indexed for search. If additional files are uploaded later, the 
 existing vector store is updated with the new files.
@@ -333,6 +339,20 @@ if "chat" not in st.session_state:
 
 st.session_state.chat.run()
 ```
+
+### PDF Vision Support
+
+File search retrieves information from a knowledge base using semantic and 
+keyword search. However, it does not support processing images within files 
+-- except in the case of PDFs. PDF files can be processed using OpenAI's 
+vision capabilities, allowing the assistant to extract both text and images 
+from each page. Notably, PDFs processed this way do not trigger the creation 
+of a vector store, as they are handled through the vision model instead.
+
+There is a limitation, however: you can upload up to 100 pages and a total of 
+32MB of content in a single PDF upload. If the uploaded PDF exceeds this 
+limit, the assistant will fall back to standard file search, which indexes 
+only the text content of the PDF.
 
 ### Vector Store Retrieval
 
@@ -370,11 +390,14 @@ st.session_state.chat.run()
 By default, the `Chat` class enables models to run Python code in a sandboxed 
 environment using OpenAI’s code interpreter. This supports tasks like data 
 analysis and calculations. To disable it, set `allow_code_interpreter=False` 
-when initializing `Chat`. The following file formats are currently supported: 
-`.c`, `.cs`, `.cpp`, `.csv`, `.doc`, `.docx`, `.html`, `.java`, `.json`, 
-`.md`, `.pdf`, `.php`, `.pptx`, `.py`, `.rb`, `.tex`, `.txt`, `.css`, `.js`, 
-`.sh`, `.ts`, `.csv`, `.jpeg`, `.jpg`, `.gif`, `.pkl`, `.png`, `.tar`, 
-`.xlsx`, `.xml`, and `.zip`. Example:
+when initializing `Chat`.
+
+The following file formats are currently supported: `.c`, `.cs`, `.cpp`, 
+`.csv`, `.doc`, `.docx`, `.html`, `.java`, `.json`, `.md`, `.pdf`, `.php`, 
+`.pptx`, `.py`, `.rb`, `.tex`, `.txt`, `.css`, `.js`, `.sh`, `.ts`, `.csv`, 
+`.jpeg`, `.jpg`, `.gif`, `.pkl`, `.png`, `.tar`, `.xlsx`, `.xml`, and `.zip`.
+
+Example:
 
 ```python
 import streamlit as st
