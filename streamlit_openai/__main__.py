@@ -3,8 +3,8 @@ import openai
 from .version import __version__
 
 def delete_all(client, keep):
-    delete_vector_stores(client, keep)
     delete_files(client, keep)
+    delete_vector_stores(client, keep)
     delete_containers(client, keep)
 
 def delete_files(client, keep):
