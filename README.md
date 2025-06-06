@@ -157,7 +157,7 @@ if "chat" not in st.session_state:
         )
         return response.choices[0].message.content
     
-    search_web = streamlit_openai.utils.CustomFunction(
+    search_web = streamlit_openai.CustomFunction(
         name="search_web",
         description="Search the web using a query.",
         parameters={
@@ -199,7 +199,7 @@ if "chat" not in st.session_state:
         )
         return response.text
     
-    transcribe_audio = streamlit_openai.utils.CustomFunction(
+    transcribe_audio = streamlit_openai.CustomFunction(
         name="transcribe_audio",
         description="Convert speech to text.",
         parameters={
