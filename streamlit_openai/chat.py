@@ -302,7 +302,7 @@ class Chat():
         if not file_path.endswith(".zip"):
             raise ValueError("File path must end with .zip")
         data = {
-            "Sections": [section.to_dict() for section in self._sections],
+            "sections": [section.to_dict() for section in self._sections],
         }
         with tempfile.TemporaryDirectory() as t:
             with open(f"{t}/data.json", "w") as f:
