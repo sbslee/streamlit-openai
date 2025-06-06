@@ -1,6 +1,6 @@
 import streamlit as st
 import openai
-import os, json, re, tempfile, zipfile
+import os, json, re, tempfile, zipfile, time
 from pathlib import Path
 from typing import Optional, List, Union, Literal
 from .utils import Section, Block, CustomFunction
@@ -375,14 +375,13 @@ class TrackedFile():
                 vector_store_id=self.chat._dynamic_vector_store.id,
                 file_id=self._openai_file.id
             )
-            result = self.chat._client.vector_stores.files.retrieve(
+            result = self.chat._client.vector_stores.retrieve(
                 vector_store_id=self.chat._dynamic_vector_store.id,
-                file_id=self._openai_file.id,
             )
             while result.status != "completed":
-                result = self.chat._client.vector_stores.files.retrieve(
+                time.sleep(1)
+                result = self.chat._client.vector_stores.retrieve(
                     vector_store_id=self.chat._dynamic_vector_store.id,
-                    file_id=self._openai_file.id,
                 )
             for tool in self.chat._tools:
                 if tool["type"] == "file_search":
