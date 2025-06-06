@@ -458,17 +458,18 @@ exported API key using the command-line interface:
 
 ```sh
 $ streamlit-openai -h
-usage: streamlit-openai [-h] [--keep ID [ID ...]] {delete-all,delete-files,delete-vector-stores,delete-containers}
+usage: streamlit-openai [-h] [-v] [--keep ID [ID ...]] {delete-all,delete-files,delete-vector-stores,delete-containers}
 
 CLI tool to delete OpenAI files, vector stores, and containers.
 
 positional arguments:
   {delete-all,delete-files,delete-vector-stores,delete-containers}
-                        Command to execute
+                        command to execute
 
 options:
   -h, --help            show this help message and exit
-  --keep ID [ID ...]    List of IDs to keep (e.g., file-123, vs_456, cntr_789)
+  -v, --version         show the version of the tool
+  --keep ID [ID ...]    list of IDs to keep (e.g., file-123, vs_456, cntr_789)
 ```
 
 # Customization
