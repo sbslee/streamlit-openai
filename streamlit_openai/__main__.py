@@ -74,9 +74,11 @@ def main():
         "delete-vector-stores": delete_vector_stores,
         "delete-containers": delete_containers,
     }
-    parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=[x for x in choices.keys()])
-    parser.add_argument("--keep", nargs="+", default=[])
+    parser = argparse.ArgumentParser(
+        description="CLI tool to delete OpenAI files, vector stores, and containers."
+    )
+    parser.add_argument("command", choices=[x for x in choices.keys()], help="Command to execute")
+    parser.add_argument("--keep", nargs="+", metavar="ID", default=[], help="List of IDs to keep (e.g., file-123, vs_456, cntr_789)")
     args = parser.parse_args()
     client = openai.OpenAI()
     choices[args.command](client, args.keep)
