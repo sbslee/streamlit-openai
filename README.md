@@ -43,6 +43,7 @@ Here’s a quick overview of the package’s key features:
   - [Example Messages](#example-messages)
   - [Info Message](#info-message)
   - [Input Box Placeholder](#input-box-placeholder)
+- [Chat Completions and Assistants APIs](#chat-completions-and-assistants-apis)
 
 # Installation
 
@@ -599,3 +600,15 @@ if "chat" not in st.session_state:
 
 st.session_state.chat.run()
 ```
+
+# Chat Completions and Assistants APIs
+
+Before the 0.1.0 release, the `streamlit-openai` package supported the OpenAI 
+Chat Completions and Assistants APIs. However, the Responses API is now 
+OpenAI's most advanced interface for generating model outputs, and the 
+Assistants API is scheduled for deprecation in early 2026. While the Chat 
+Completions API will remain available, OpenAI recommends using the Responses 
+API for all new applications, as it offers a more powerful and flexible way 
+to interact with their models. Starting with the 0.1.0 release, the package 
+has been updated to use the Responses API exclusively.
+
