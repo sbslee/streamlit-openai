@@ -130,7 +130,9 @@ if "chat" not in st.session_state:
         handler=handler
     )
 
-    st.session_state.chat = streamlit_openai.Chat(functions=[generate_image])
+    st.session_state.chat = streamlit_openai.Chat(
+        functions=[generate_image]
+    )
 
 st.session_state.chat.run()
 ```
@@ -249,9 +251,7 @@ st.session_state.chat.run()
 ### Static File Upload
 
 You can upload files statically by providing the `uploaded_files` parameter
-when initializing the `Chat` class. This allows you to include files that
-are always available in the chat interface. Below is an example of how to
-upload a PDF file statically:
+when initializing the `Chat` class. Example:
 
 ```python
 import streamlit as st
@@ -267,9 +267,9 @@ st.session_state.chat.run()
 
 ### File Uploader Widget
 
-You can use `st.file_uploader` to let users upload files dynamically. While the 
-widget allows file removal, the files remain in the chat history and context. 
-Here's an example of how to use it:
+You can use `st.file_uploader` to allow users to upload files dynamically. 
+Note that while the widget supports file removal, the files will still remain 
+in the chat context. Example:
 
 ```python
 import streamlit as st
@@ -286,8 +286,12 @@ st.session_state.chat.run(uploaded_files=uploaded_files)
 ## Vision
 
 The `Chat` class supports OpenAI’s vision capabilities, allowing image input 
-to be processed within a chat. Currently, the following image formats are 
-supported: `.png`, `.jpeg`, `.jpg`, `.webp`, and `.gif`. Here’s an example:
+to be processed within a chat.
+
+Currently, the following image formats are supported: `.png`, `.jpeg`, `.jpg`, 
+`.webp`, and `.gif`.
+
+Here’s an example:
 
 ```python
 import streamlit as st
@@ -387,10 +391,10 @@ st.session_state.chat.run()
 
 ## Code Interpreter
 
-By default, the `Chat` class enables models to run Python code in a sandboxed 
-environment using OpenAI’s code interpreter. This supports tasks like data 
-analysis and calculations. To disable it, set `allow_code_interpreter=False` 
-when initializing `Chat`.
+By default, the `Chat` class runs Python code in a sandboxed environment using 
+OpenAI's code interpreter. It can read, write, and analyze files in formats 
+like text, CSV, and images. To disable this, set 
+`allow_code_interpreter=False` when initializing `Chat`.
 
 The following file formats are currently supported: `.c`, `.cs`, `.cpp`, 
 `.csv`, `.doc`, `.docx`, `.html`, `.java`, `.json`, `.md`, `.pdf`, `.php`, 
