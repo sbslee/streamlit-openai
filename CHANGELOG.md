@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 0.1.0 (in development)
+## 0.1.0 (2025-06-06)
 * Add support for OpenAI's Responses API and set it as the default.
 * Remove support for OpenAI's Chat Completions and Assistants APIs.
 * Introduce a CLI for deleting OpenAI files, vector stores, and containers.
