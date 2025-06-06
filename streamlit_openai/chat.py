@@ -48,31 +48,7 @@ MIME_TYPES = {
 }
 
 class Chat():
-    """
-    A chat interface using OpenAI's Responses API.
-
-    This class manages a message history and streams assistant responses in a 
-    chat-like interface.
-
-    Attributes:
-        api_key (str): API key for OpenAI. If not provided, fetched from environment variable `OPENAI_API_KEY`.
-        model (str): The OpenAI model used for chat completions (default: "gpt-4o").
-        instructions (str): Instructions for the assistant.
-        temperature (float): Sampling temperature for the model (default: 1.0).        
-        accept_file (bool or str): Whether the chat input should accept files (True, False, or "multiple") (default: "multiple").
-        uploaded_files (list): List of files to be uploaded to the assistant during initialization.
-        functions (list): Optional list of custom function tools to be attached to the assistant.
-        user_avatar (str): An emoji, image URL, or file path that represents the user.
-        assistant_avatar (str): An emoji, image URL, or file path that represents the assistant.
-        placeholder (str): Placeholder text for the chat input box (default: "Your message").
-        welcome_message (str): Welcome message from the assistant.
-        example_messages (list): A list of example messages for the user to choose from.
-        info_message (str): Information message to be displayed in the chat.
-        vector_store_ids (list): List of vector store IDs for file search. Only used if file_search is enabled.
-        history (str): File path to the chat history ZIP file. If provided, the chat history will be loaded from this file.
-        allow_code_interpreter (bool): Whether to allow code interpreter functionality (default: True).
-        allow_file_search (bool): Whether to allow file search functionality (default: True).
-    """
+    """A Streamlit-based chat interface powered by OpenAI's Responses API."""
     def __init__(
         self,
         api_key: Optional[str] = None,
@@ -93,6 +69,28 @@ class Chat():
         allow_code_interpreter: Optional[bool] = True,
         allow_file_search: Optional[bool] = True,
     ) -> None:
+        """
+        Initializes a Chat instance.
+
+        Args:
+            api_key (str): API key for OpenAI. If not provided, fetched from environment variable `OPENAI_API_KEY`.
+            model (str): The OpenAI model to use (default: "gpt-4o").
+            instructions (str): Instructions for the assistant.
+            temperature (float): Sampling temperature for the model (default: 1.0).
+            accept_file (bool or str): Whether the chat input should accept files (True, False, or "multiple") (default: "multiple").
+            uploaded_files (list): List of files to be uploaded to the assistant during initialization.
+            functions (list): List of custom functions to be attached to the assistant.
+            user_avatar (str): An emoji, image URL, or file path that represents the user.
+            assistant_avatar (str): An emoji, image URL, or file path that represents the assistant.
+            placeholder (str): Placeholder text for the chat input box (default: "Your message").
+            welcome_message (str): Welcome message from the assistant.
+            example_messages (list): List of example messages for the user to choose from.
+            info_message (str): Information message to be displayed in the chat.
+            vector_store_ids (list): List of vector store IDs for file search. Only used if file search is enabled.
+            history (str): File path to the chat history ZIP file. If provided, the chat history will be loaded from this file.
+            allow_code_interpreter (bool): Whether to allow code interpreter functionality (default: True).
+            allow_file_search (bool): Whether to allow file search functionality (default: True).
+        """
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.model = model
         self.instructions = "" if instructions is None else instructions
@@ -178,7 +176,7 @@ class Chat():
 
     @property
     def last_section(self) -> Optional["Section"]:
-        """Returns the last section."""
+        """Returns the last section of the chat."""
         return self._sections[-1] if self._sections else None
 
     def respond(self, prompt) -> None:
@@ -245,7 +243,7 @@ class Chat():
                     self.last_section.update_and_stream("text", event2.delta)
 
     def run(self, uploaded_files=None) -> None:
-        """Runs the main assistant loop: handles user messages."""
+        """Runs the main assistant loop."""
         if self.info_message is not None:
             st.info(self.info_message)
         for section in self._sections:
@@ -290,8 +288,7 @@ class Chat():
                     self.respond(self._selected_example)
 
     def handle_files(self, uploaded_files) -> None:
-        """Handles uploaded files and manages tracked file lifecycle."""
-        # Handle file uploads
+        """Handles uploaded files."""
         if uploaded_files is None:
             return
         else:
@@ -319,43 +316,42 @@ class Chat():
                         )
 
     class TrackedFile():
-        """
-        A class to represent a file that is tracked and managed within the 
-        OpenAI and Streamlit integration.
-
-        Attributes:
-            chat (Chat): The Chat instance that this file is associated with.
-            uploaded_file (UploadedFile or str): An UploadedFile object or a string representing the file path.
-            file_path (Path): The path to the file on the local filesystem.
-        """
+        """A file that is tracked by the chat."""
         def __init__(
             self,
             chat: "Chat",
             uploaded_file: Optional[Union[UploadedFile, str]]
         ) -> None:
+            """
+            Initializes a TrackedFile instance.
+            
+            Args:
+                chat (Chat): The parent Chat object.
+                uploaded_file (UploadedFile or str): An UploadedFile object or a string representing the file path.
+            """
             self.chat = chat
             self.uploaded_file = uploaded_file
-            self.file_path = None
+            self._file_path = None
             self._openai_file = None
             self._vision_file = None
             self._skip_file_search = False
 
             if isinstance(self.uploaded_file, str):
-                self.file_path = Path(self.uploaded_file).resolve()
+                self._file_path = Path(self.uploaded_file).resolve()
             elif isinstance(self.uploaded_file, UploadedFile):
-                self.file_path = Path(os.path.join(self.chat._temp_dir.name, self.uploaded_file.name))
-                with open(self.file_path, "wb") as f:
+                self._file_path = Path(os.path.join(self.chat._temp_dir.name, self.uploaded_file.name))
+                with open(self._file_path, "wb") as f:
                     f.write(self.uploaded_file.getvalue())
             else:
                 raise ValueError("uploaded_file must be an instance of UploadedFile or a string representing the file path.")
 
             self.chat._input.append(
-                {"role": "user", "content": [{"type": "input_text", "text": f"File locally available at: {self.file_path}"}]}
+                {"role": "user", "content": [{"type": "input_text", "text": f"File locally available at: {self._file_path}"}]}
             )
 
-            if self.file_path.suffix == ".pdf":
+            if self._file_path.suffix == ".pdf":
                 if self._openai_file is None:
-                    with open(self.file_path, "rb") as f:
+                    with open(self._file_path, "rb") as f:
                         self._openai_file = self.chat._client.files.create(file=f, purpose="user_data")
                 try:
                     # Test if the PDF file can be processed
@@ -374,18 +370,18 @@ class Chat():
                 except Exception as e:
                     pass
 
-            if self.chat.allow_code_interpreter and self.file_path.suffix in CODE_INTERPRETER_EXTENSIONS:
+            if self.chat.allow_code_interpreter and self._file_path.suffix in CODE_INTERPRETER_EXTENSIONS:
                 if self._openai_file is None:
-                    with open(self.file_path, "rb") as f:
+                    with open(self._file_path, "rb") as f:
                         self._openai_file = self.chat._client.files.create(file=f, purpose="user_data")
                 self.chat._client.containers.files.create(
                     container_id=self.chat._container_id,
                     file_id=self._openai_file.id,
                 )
 
-            if self.chat.allow_file_search and not self._skip_file_search and self.file_path.suffix in FILE_SEARCH_EXTENSIONS:
+            if self.chat.allow_file_search and not self._skip_file_search and self._file_path.suffix in FILE_SEARCH_EXTENSIONS:
                 if self._openai_file is None:
-                    with open(self.file_path, "rb") as f:
+                    with open(self._file_path, "rb") as f:
                         self._openai_file = self.chat._client.files.create(file=f, purpose="user_data")
                 if self.chat._dynamic_vector_store is None:
                     self.chat._dynamic_vector_store = self.chat._client.vector_stores.create(
@@ -414,43 +410,38 @@ class Chat():
                         "vector_store_ids": [self.chat._dynamic_vector_store.id]
                     })
 
-            if self.file_path.suffix in VISION_EXTENSIONS:
-                self._vision_file = self.chat._client.files.create(file=self.file_path, purpose="vision")
+            if self._file_path.suffix in VISION_EXTENSIONS:
+                self._vision_file = self.chat._client.files.create(file=self._file_path, purpose="vision")
                 self.chat._input.append({
                     "role": "user",
                     "content": [{"type": "input_image", "file_id": self._vision_file.id}]
                 })
 
         def __repr__(self) -> None:
-            return f"TrackedFile(uploaded_file='{self.file_path.name}')"
+            return f"TrackedFile(uploaded_file='{self._file_path.name}')"
         
     def track(self, uploaded_file) -> None:
-        """Tracks a file uploaded by the user and manages its lifecycle."""
+        """Tracks a file uploaded by the user."""
         self._tracked_files.append(
             self.TrackedFile(self, uploaded_file)
         )
 
     class Block():
-        """
-        Represents a single unit of content in a chat interface—such as text, 
-        code, an image, or a downloadable file.
-
-        A `Block` encapsulates and renders various types of messages within the 
-        chat UI. It associates the content with its category (e.g., text, code, 
-        image, or download) and includes the logic required for proper display and 
-        interaction.
-
-        Attributes:
-            chat (Chat): The parent chat object managing the chat interface.
-            category (str): The type of content ('text', 'code', 'image', or 'download').
-            content (str, bytes, or openai.File): The actual content of the block. This can be a string for text or code, bytes for images, or an `openai.File` object for downloadable files.
-        """
+        """A block of content in the chat."""
         def __init__(
                 self,
                 chat: "Chat",
                 category: str,
                 content: Optional[Union[str, bytes, openai.File]] = None,
         ) -> None:
+            """
+            Initializes a Block instance.
+            
+            Args:
+                chat (Chat): The parent Chat object.
+                category (str): The type of content ('text', 'code', 'image', or 'download').
+                content (str, bytes, or openai.File): The actual content of the block. This can be a string for text or code, bytes for images, or an `openai.File` object for downloadable files.
+            """
             self.chat = chat
             self.category = category
             self.content = content
@@ -477,7 +468,7 @@ class Chat():
             return self.category == category
 
         def write(self) -> None:
-            """Renders the block's content to the Streamlit interface."""
+            """Renders the block's content to the chat."""
             if self.category == "text":
                 st.markdown(self.content)
             elif self.category == "code":
@@ -519,30 +510,25 @@ class Chat():
             }
 
     def create_block(self, category, content=None) -> "Block":
-        """Creates a new Block."""
+        """Creates a new block object."""
         return self.Block(self, category, content=content)
 
     class Section():
-        """
-        Represents a single message section in a Streamlit chat interface, 
-        managing role-based message blocks and real-time updates.
-
-        This class holds a sequence of message blocks (e.g., text, code, image) 
-        associated with a role (e.g., "user", "assistant"), and handles updating, 
-        rendering, and streaming content to the UI.
-
-        Attributes:
-            chat (Chat): The parent chat object managing the chat interface.
-            role (str): The role associated with this message (e.g., "user" or "assistant").
-            blocks (list): A list of Block instances representing message segments.
-            delta_generator (DeltaGenerator): A Streamlit placeholder used for dynamic content updates.
-        """
+        """A section of the chat."""
         def __init__(
                 self,
                 chat: "Chat",
                 role: str,
                 blocks: Optional[List["Block"]] = None,
         ) -> None:
+            """
+            Initializes a Section instance.
+            
+            Attributes:
+                chat (Chat): The parent Chat object.
+                role (str): The role associated with this message (e.g., "user" or "assistant").
+                blocks (list): A list of Block instances representing message segments.
+            """
             self.chat = chat
             self.role = role
             self.blocks = blocks
