@@ -453,18 +453,19 @@ st.session_state.chat.run()
 
 ## Storage Management
 
-You can delete all vector stores, files, or both associated with the exported 
-API key using the command-line interface:
+You can delete all vector stores, files, and containers associated with the 
+exported API key using the command-line interface:
 
 ```sh
-$ streamlit-openai -h                 
-usage: streamlit-openai [-h] {clear-vector-stores,clear-files,clear-all}
+$ streamlit-openai -h        
+usage: streamlit-openai [-h] [--keep KEEP [KEEP ...]] {delete-all,delete-files,delete-vector-stores,delete-containers}
 
 positional arguments:
-  {clear-vector-stores,clear-files,clear-all}
+  {delete-all,delete-files,delete-vector-stores,delete-containers}
 
 options:
   -h, --help            show this help message and exit
+  --keep KEEP [KEEP ...]
 ```
 
 # Customization

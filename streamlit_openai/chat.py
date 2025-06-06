@@ -2,8 +2,8 @@ import streamlit as st
 import openai
 import os, json, re, tempfile, zipfile, time
 from pathlib import Path
-from typing import Optional, List, Union, Literal
-from .utils import Section, Block, CustomFunction
+from typing import Optional, List, Union, Literal, Dict, Any
+from .utils import CustomFunction
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 DEVELOPER_MESSAGE = """
@@ -27,6 +27,25 @@ FILE_SEARCH_EXTENSIONS = [
 ]
 
 VISION_EXTENSIONS = [".png", ".jpeg", ".jpg", ".webp", ".gif"]
+
+MIME_TYPES = {
+    "txt" : "text/plain",
+    "csv" : "text/csv",
+    "tsv" : "text/tab-separated-values",
+    "html": "text/html",
+    "yaml": "text/yaml",
+    "md"  : "text/markdown",
+    "png" : "image/png",
+    "jpg" : "image/jpeg",
+    "jpeg": "image/jpeg",
+    "gif" : "image/gif",
+    "xml" : "application/xml",
+    "json": "application/json",
+    "pdf" : "application/pdf",
+    "zip" : "application/zip",
+    "tar" : "application/x-tar",
+    "gz"  : "application/gzip",
+}
 
 class Chat():
     """
@@ -127,8 +146,9 @@ class Chat():
         # If a welcome message is provided, add it to the chat history
         if self.welcome_message is not None:
             self._input.append({"role": "assistant", "content": self.welcome_message})
-            self._sections.append(
-                Section(self, "assistant", blocks=[Block(self, "text", self.welcome_message)])
+            self.add_section(
+                "assistant",
+                blocks=[self.create_block("text", self.welcome_message)]
             )
 
         # If files are uploaded statically, create tracked files for them
@@ -146,11 +166,10 @@ class Chat():
                 with open(f"{t}/{self.history.replace('.zip', '')}/data.json", "r") as f:
                     data = json.load(f)
                     for section in data["sections"]:
-                        self._sections.append(Section(
-                            self,
+                        self.add_section(
                             section["role"],
-                            blocks=[Block(self, block["category"], block["content"]) for block in section["blocks"]]
-                        ))
+                            blocks=[self.create_block(block["category"], block["content"]) for block in section["blocks"]]
+                        )
                         for block in section["blocks"]:
                             self._input.append({
                                 "role": section["role"],
@@ -158,13 +177,14 @@ class Chat():
                             })
 
     @property
-    def last_section(self) -> Optional[Section]:
+    def last_section(self) -> Optional["Section"]:
+        """Returns the last section."""
         return self._sections[-1] if self._sections else None
 
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
         self._input.append({"role": "user", "content": prompt})
-        self._sections.append(Section(self, "assistant"))
+        self.add_section("assistant")
         events1 = self._client.responses.create(
             model=self.model,
             input=self._input,
@@ -243,8 +263,9 @@ class Chat():
                 prompt = chat_input
             with st.chat_message("user"):
                 st.markdown(prompt)
-            self._sections.append(
-                Section(self, "user", blocks=[Block(self, "text", prompt)])
+            self.add_section(
+                "user",
+                blocks=[self.create_block("text", prompt)]
             )
             self.handle_files(uploaded_files)
             self.respond(prompt)
@@ -262,8 +283,9 @@ class Chat():
                 else:
                     with st.chat_message("user"):
                             st.markdown(self._selected_example)
-                    self._sections.append(
-                        Section(self, "user", blocks=[Block(self, "text", self._selected_example)])
+                    self.add_section(
+                        "user",
+                        blocks=[self.create_block("text", self._selected_example)]
                     )
                     self.respond(self._selected_example)
 
@@ -302,7 +324,7 @@ class Chat():
         OpenAI and Streamlit integration.
 
         Attributes:
-            chat (ChatCompletions): The ChatCompletions instance that this file is associated with.
+            chat (Chat): The Chat instance that this file is associated with.
             uploaded_file (UploadedFile or str): An UploadedFile object or a string representing the file path.
             file_path (Path): The path to the file on the local filesystem.
         """
@@ -402,8 +424,183 @@ class Chat():
         def __repr__(self) -> None:
             return f"TrackedFile(uploaded_file='{self.file_path.name}')"
         
-    def track(self, uploaded_file):
+    def track(self, uploaded_file) -> None:
         """Tracks a file uploaded by the user and manages its lifecycle."""
         self._tracked_files.append(
             self.TrackedFile(self, uploaded_file)
+        )
+
+    class Block():
+        """
+        Represents a single unit of content in a chat interface—such as text, 
+        code, an image, or a downloadable file.
+
+        A `Block` encapsulates and renders various types of messages within the 
+        chat UI. It associates the content with its category (e.g., text, code, 
+        image, or download) and includes the logic required for proper display and 
+        interaction.
+
+        Attributes:
+            chat (Chat): The parent chat object managing the chat interface.
+            category (str): The type of content ('text', 'code', 'image', or 'download').
+            content (str, bytes, or openai.File): The actual content of the block. This can be a string for text or code, bytes for images, or an `openai.File` object for downloadable files.
+        """
+        def __init__(
+                self,
+                chat: "Chat",
+                category: str,
+                content: Optional[Union[str, bytes, openai.File]] = None,
+        ) -> None:
+            self.chat = chat
+            self.category = category
+            self.content = content
+
+            if self.content is None:
+                self.content = ""
+            else:
+                self.content = content
+
+        def __repr__(self) -> None:
+            if self.category in ["text", "code"]:
+                content = self.content
+                if len(content) > 30:
+                    content = content[:30].strip() + "..."
+                content = repr(content)
+            elif self.category == "image":
+                content = "Bytes"
+            elif self.category == "download":
+                content = f"File(filename='{os.path.basename(self.content.filename)}')"
+            return f"Block(category='{self.category}', content={content})"
+
+        def iscategory(self, category) -> bool:
+            """Checks if the block belongs to the specified category."""
+            return self.category == category
+
+        def write(self) -> None:
+            """Renders the block's content to the Streamlit interface."""
+            if self.category == "text":
+                st.markdown(self.content)
+            elif self.category == "code":
+                st.code(self.content)
+            elif self.category == "image":
+                st.image(self.content)
+            elif self.category == "download":
+                cfile_content = self.chat._client.containers.files.content.retrieve(
+                    file_id=self.content,
+                    container_id=self.chat._container_id
+                )
+                cfile = self.chat._client.containers.files.retrieve(
+                    file_id=self.content,
+                    container_id=self.chat._container_id                
+                )
+                filename = os.path.basename(cfile.path)
+                _, file_extension = os.path.splitext(filename)
+                st.download_button(
+                    label=filename,
+                    data=cfile_content.read(),
+                    file_name=filename,
+                    mime=MIME_TYPES[file_extension.lstrip(".")],
+                    icon=":material/download:",
+                    key=self.chat._download_button_key,
+                )
+                self.chat._download_button_key += 1
+
+        def to_dict(self) -> Dict[str, Any]:
+            """Converts the block to a dictionary representation."""
+            if self.category in ["text", "code"]:
+                content = self.content
+            elif self.category == "image":
+                content = "Bytes"
+            elif self.category == "download":
+                content = f"File(filename='{os.path.basename(self.content.filename)}')"
+            return {
+                "category": self.category,
+                "content": content,
+            }
+
+    def create_block(self, category, content=None) -> "Block":
+        """Creates a new Block."""
+        return self.Block(self, category, content=content)
+
+    class Section():
+        """
+        Represents a single message section in a Streamlit chat interface, 
+        managing role-based message blocks and real-time updates.
+
+        This class holds a sequence of message blocks (e.g., text, code, image) 
+        associated with a role (e.g., "user", "assistant"), and handles updating, 
+        rendering, and streaming content to the UI.
+
+        Attributes:
+            chat (Chat): The parent chat object managing the chat interface.
+            role (str): The role associated with this message (e.g., "user" or "assistant").
+            blocks (list): A list of Block instances representing message segments.
+            delta_generator (DeltaGenerator): A Streamlit placeholder used for dynamic content updates.
+        """
+        def __init__(
+                self,
+                chat: "Chat",
+                role: str,
+                blocks: Optional[List["Block"]] = None,
+        ) -> None:
+            self.chat = chat
+            self.role = role
+            self.blocks = blocks
+            self.delta_generator = st.empty()
+            
+        def __repr__(self) -> None:
+            return f"Section(role='{self.role}', blocks={self.blocks})"
+
+        @property
+        def empty(self) -> bool:
+            """Returns True if the section has no blocks."""
+            return self.blocks is None
+
+        @property
+        def last_block(self) -> Optional["Block"]:
+            """Returns the last block in the section or None if empty."""
+            return None if self.empty else self.blocks[-1]
+
+        def update(self, category, content) -> None:
+            """Updates the section with new content, appending or extending existing blocks."""
+            if self.empty:
+                self.blocks = [self.chat.create_block(category, content)]
+            elif category in ["text", "code"] and self.last_block.iscategory(category):
+                self.last_block.content += content
+            else:
+                self.blocks.append(self.chat.create_block(category, content))
+
+        def write(self) -> None:
+            """Renders the section's content in the Streamlit chat interface."""
+            if self.empty:
+                pass
+            else:
+                with st.chat_message(self.role, avatar=self.chat.user_avatar if self.role == "user" else self.chat.assistant_avatar):
+                    for block in self.blocks:
+                        block.write()
+
+        def update_and_stream(self, category, content) -> None:
+            """Updates the section and streams the update live to the UI."""
+            self.update(category, content)
+            self.stream()
+
+        def stream(self) -> None:
+            """Renders the section content using Streamlit's delta generator."""
+            with self.delta_generator:
+                self.write()
+
+        def to_dict(self) -> Dict[str, Any]:
+            """Converts the section to a dictionary representation."""
+            if self.empty:
+                return {}
+            else:
+                return {
+                    "role": self.role,
+                    "blocks": [block.to_dict() for block in self.blocks],
+                }
+
+    def add_section(self, role, blocks=None) -> None:
+        """Adds a new Section."""
+        self._sections.append(
+            self.Section(self, role, blocks=blocks)
         )

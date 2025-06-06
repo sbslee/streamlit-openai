@@ -3,7 +3,7 @@
 ## 0.1.0 (in development)
 * Add support for OpenAI's Responses API and set it as the default.
 * Remove support for OpenAI's Chat Completions and Assistants APIs.
-* Introduce a CLI for deleting files and vector stores.
+* Introduce a CLI for deleting OpenAI files, vector stores, and containers.
 
 ## 0.0.10 (2025-06-02)
 * Add new capabilities.
