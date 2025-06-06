@@ -41,7 +41,7 @@ class Chat():
         instructions (str): Instructions for the assistant.
         temperature (float): Sampling temperature for the model (default: 1.0).        
         accept_file (bool or str): Whether the chat input should accept files (True, False, or "multiple") (default: "multiple").
-        uploaded_files (list): List of files to be uploaded to the assistant during initialization. Currently, only PDF files are supported.
+        uploaded_files (list): List of files to be uploaded to the assistant during initialization.
         functions (list): Optional list of custom function tools to be attached to the assistant.
         user_avatar (str): An emoji, image URL, or file path that represents the user.
         assistant_avatar (str): An emoji, image URL, or file path that represents the assistant.
@@ -131,10 +131,10 @@ class Chat():
                 Section(self, "assistant", blocks=[Block(self, "text", self.welcome_message)])
             )
 
-        # If message files are provided, upload them to the assistant
+        # If files are uploaded statically, create tracked files for them
         if self.uploaded_files is not None:
             for uploaded_file in self.uploaded_files:
-                tracked_file = TrackedFile(self, uploaded_file)
+                tracked_file = self.create_tracked_file(uploaded_file)
                 self._tracked_files.append(tracked_file)
 
         # If a chat history file is provided, load the chat history
@@ -275,9 +275,9 @@ class Chat():
             return
         else:
             for uploaded_file in uploaded_files:
-                if uploaded_file.file_id in [x.uploaded_file.file_id for x in self._tracked_files]:
+                if uploaded_file.file_id in [x.uploaded_file.file_id for x in self._tracked_files if isinstance(x, UploadedFile)]:
                     continue
-                tracked_file = TrackedFile(self, uploaded_file=uploaded_file)
+                tracked_file = self.create_tracked_file(uploaded_file)
                 self._tracked_files.append(tracked_file)
 
     def save(self, file_path: str) -> None:
@@ -298,108 +298,111 @@ class Chat():
                             arcname=os.path.join(os.path.basename(file_path.replace(".zip", "")), file)
                         )
 
-class TrackedFile():
-    """
-    A class to represent a file that is tracked and managed within the OpenAI 
-    and Streamlit integration.
+    class TrackedFile():
+        """
+        A class to represent a file that is tracked and managed within the 
+        OpenAI and Streamlit integration.
 
-    Attributes:
-        chat (ChatCompletions): The ChatCompletions instance that this file is associated with.
-        uploaded_file (UploadedFile or str): An UploadedFile object or a string representing the file path.
-        file_path (Path): The path to the file on the local filesystem.
-    """
-    def __init__(
-        self,
-        chat: Chat,
-        uploaded_file: Optional[UploadedFile]
-    ) -> None:
-        self.chat = chat
-        self.uploaded_file = uploaded_file
-        self.file_path = None
-        self._openai_file = None
-        self._vision_file = None
-        self._skip_file_search = False
+        Attributes:
+            chat (ChatCompletions): The ChatCompletions instance that this file is associated with.
+            uploaded_file (UploadedFile or str): An UploadedFile object or a string representing the file path.
+            file_path (Path): The path to the file on the local filesystem.
+        """
+        def __init__(
+            self,
+            chat: "Chat",
+            uploaded_file: Optional[Union[UploadedFile, str]]
+        ) -> None:
+            self.chat = chat
+            self.uploaded_file = uploaded_file
+            self.file_path = None
+            self._openai_file = None
+            self._vision_file = None
+            self._skip_file_search = False
 
-        if isinstance(self.uploaded_file, str):
-            self.file_path = Path(self.uploaded_file).resolve()
-        elif isinstance(self.uploaded_file, UploadedFile):
-            self.file_path = Path(os.path.join(self.chat._temp_dir.name, self.uploaded_file.name))
-            with open(self.file_path, "wb") as f:
-                f.write(self.uploaded_file.getvalue())
-        else:
-            raise ValueError("uploaded_file must be an instance of UploadedFile or a string representing the file path.")
+            if isinstance(self.uploaded_file, str):
+                self.file_path = Path(self.uploaded_file).resolve()
+            elif isinstance(self.uploaded_file, UploadedFile):
+                self.file_path = Path(os.path.join(self.chat._temp_dir.name, self.uploaded_file.name))
+                with open(self.file_path, "wb") as f:
+                    f.write(self.uploaded_file.getvalue())
+            else:
+                raise ValueError("uploaded_file must be an instance of UploadedFile or a string representing the file path.")
 
-        self.chat._input.append(
-            {"role": "user", "content": [{"type": "input_text", "text": f"File locally available at: {self.file_path}"}]}
-        )
+            self.chat._input.append(
+                {"role": "user", "content": [{"type": "input_text", "text": f"File locally available at: {self.file_path}"}]}
+            )
 
-        if self.file_path.suffix == ".pdf":
-            if self._openai_file is None:
-                with open(self.file_path, "rb") as f:
-                    self._openai_file = self.chat._client.files.create(file=f, purpose="user_data")
-            try:
-                # Test if the PDF file can be processed
-                response = self.chat._client.responses.create(
-                    model=self.chat.model,
-                    input=[{
+            if self.file_path.suffix == ".pdf":
+                if self._openai_file is None:
+                    with open(self.file_path, "rb") as f:
+                        self._openai_file = self.chat._client.files.create(file=f, purpose="user_data")
+                try:
+                    # Test if the PDF file can be processed
+                    response = self.chat._client.responses.create(
+                        model=self.chat.model,
+                        input=[{
+                            "role": "user",
+                            "content": [{"type": "input_file", "file_id": self._openai_file.id
+                        }]}]
+                    )
+                    self.chat._input.append({
                         "role": "user",
-                        "content": [{"type": "input_file", "file_id": self._openai_file.id
-                    }]}]
-                )
-                self.chat._input.append({
-                    "role": "user",
-                    "content": [{"type": "input_file", "file_id": self._openai_file.id}]
-                })
-                self._skip_file_search = True
-            except Exception as e:
-                pass
+                        "content": [{"type": "input_file", "file_id": self._openai_file.id}]
+                    })
+                    self._skip_file_search = True
+                except Exception as e:
+                    pass
 
-        if self.chat.allow_code_interpreter and self.file_path.suffix in CODE_INTERPRETER_EXTENSIONS:
-            if self._openai_file is None:
-                with open(self.file_path, "rb") as f:
-                    self._openai_file = self.chat._client.files.create(file=f, purpose="user_data")
-            self.chat._client.containers.files.create(
-                container_id=self.chat._container_id,
-                file_id=self._openai_file.id,
-            )
-
-        if self.chat.allow_file_search and not self._skip_file_search and self.file_path.suffix in FILE_SEARCH_EXTENSIONS:
-            if self._openai_file is None:
-                with open(self.file_path, "rb") as f:
-                    self._openai_file = self.chat._client.files.create(file=f, purpose="user_data")
-            if self.chat._dynamic_vector_store is None:
-                self.chat._dynamic_vector_store = self.chat._client.vector_stores.create(
-                    name="streamlit-openai"
+            if self.chat.allow_code_interpreter and self.file_path.suffix in CODE_INTERPRETER_EXTENSIONS:
+                if self._openai_file is None:
+                    with open(self.file_path, "rb") as f:
+                        self._openai_file = self.chat._client.files.create(file=f, purpose="user_data")
+                self.chat._client.containers.files.create(
+                    container_id=self.chat._container_id,
+                    file_id=self._openai_file.id,
                 )
-            self.chat._client.vector_stores.files.create(
-                vector_store_id=self.chat._dynamic_vector_store.id,
-                file_id=self._openai_file.id
-            )
-            result = self.chat._client.vector_stores.retrieve(
-                vector_store_id=self.chat._dynamic_vector_store.id,
-            )
-            while result.status != "completed":
-                time.sleep(1)
+
+            if self.chat.allow_file_search and not self._skip_file_search and self.file_path.suffix in FILE_SEARCH_EXTENSIONS:
+                if self._openai_file is None:
+                    with open(self.file_path, "rb") as f:
+                        self._openai_file = self.chat._client.files.create(file=f, purpose="user_data")
+                if self.chat._dynamic_vector_store is None:
+                    self.chat._dynamic_vector_store = self.chat._client.vector_stores.create(
+                        name="streamlit-openai"
+                    )
+                self.chat._client.vector_stores.files.create(
+                    vector_store_id=self.chat._dynamic_vector_store.id,
+                    file_id=self._openai_file.id
+                )
                 result = self.chat._client.vector_stores.retrieve(
                     vector_store_id=self.chat._dynamic_vector_store.id,
                 )
-            for tool in self.chat._tools:
-                if tool["type"] == "file_search":
-                    if self.chat._dynamic_vector_store.id not in tool["vector_store_ids"]:
-                        tool["vector_store_ids"].append(self.chat._dynamic_vector_store.id)
-                    break
-            else:
-                self.chat._tools.append({
-                    "type": "file_search",
-                    "vector_store_ids": [self.chat._dynamic_vector_store.id]
+                while result.status != "completed":
+                    time.sleep(1)
+                    result = self.chat._client.vector_stores.retrieve(
+                        vector_store_id=self.chat._dynamic_vector_store.id,
+                    )
+                for tool in self.chat._tools:
+                    if tool["type"] == "file_search":
+                        if self.chat._dynamic_vector_store.id not in tool["vector_store_ids"]:
+                            tool["vector_store_ids"].append(self.chat._dynamic_vector_store.id)
+                        break
+                else:
+                    self.chat._tools.append({
+                        "type": "file_search",
+                        "vector_store_ids": [self.chat._dynamic_vector_store.id]
+                    })
+
+            if self.file_path.suffix in VISION_EXTENSIONS:
+                self._vision_file = self.chat._client.files.create(file=self.file_path, purpose="vision")
+                self.chat._input.append({
+                    "role": "user",
+                    "content": [{"type": "input_image", "file_id": self._vision_file.id}]
                 })
 
-        if self.file_path.suffix in VISION_EXTENSIONS:
-            self._vision_file = self.chat._client.files.create(file=self.file_path, purpose="vision")
-            self.chat._input.append({
-                "role": "user",
-                "content": [{"type": "input_image", "file_id": self._vision_file.id}]
-            })
-
-    def __repr__(self) -> None:
-        return f"TrackedFile(uploaded_file='{self.file_path.name}')"
+        def __repr__(self) -> None:
+            return f"TrackedFile(uploaded_file='{self.file_path.name}')"
+        
+    def create_tracked_file(self, uploaded_file):
+        return self.TrackedFile(self, uploaded_file)
