@@ -134,8 +134,7 @@ class Chat():
         # If files are uploaded statically, create tracked files for them
         if self.uploaded_files is not None:
             for uploaded_file in self.uploaded_files:
-                tracked_file = self.create_tracked_file(uploaded_file)
-                self._tracked_files.append(tracked_file)
+                self.track(uploaded_file)
 
         # If a chat history file is provided, load the chat history
         if self.history is not None:
@@ -277,8 +276,7 @@ class Chat():
             for uploaded_file in uploaded_files:
                 if uploaded_file.file_id in [x.uploaded_file.file_id for x in self._tracked_files if isinstance(x, UploadedFile)]:
                     continue
-                tracked_file = self.create_tracked_file(uploaded_file)
-                self._tracked_files.append(tracked_file)
+                self.track(uploaded_file)
 
     def save(self, file_path: str) -> None:
         """Saves the chat history to a ZIP file."""
@@ -404,5 +402,8 @@ class Chat():
         def __repr__(self) -> None:
             return f"TrackedFile(uploaded_file='{self.file_path.name}')"
         
-    def create_tracked_file(self, uploaded_file):
-        return self.TrackedFile(self, uploaded_file)
+    def track(self, uploaded_file):
+        """Tracks a file uploaded by the user and manages its lifecycle."""
+        self._tracked_files.append(
+            self.TrackedFile(self, uploaded_file)
+        )
