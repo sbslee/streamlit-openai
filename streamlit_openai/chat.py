@@ -142,7 +142,7 @@ class Chat():
             })
 
         # If a welcome message is provided, add it to the chat history
-        if self.welcome_message is not None:
+        if self.welcome_message is not None and self.history is None:
             self._input.append({"role": "assistant", "content": self.welcome_message})
             self.add_section(
                 "assistant",
