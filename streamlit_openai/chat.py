@@ -268,7 +268,7 @@ class Chat():
             self.handle_files(uploaded_files)
             self.respond(prompt)
         else:
-            if self.example_messages is not None:
+            if self.example_messages is not None and not any(section.role == "user" for section in self._sections):
                 if self._selected_example is None:
                     selected_example = st.pills(
                         "Examples",
