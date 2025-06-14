@@ -465,7 +465,12 @@ class Chat():
             elif self.category == "image":
                 content = "Bytes"
             elif self.category == "download":
-                content = f"File(filename='{os.path.basename(self.content.filename)}')"
+                cfile = self.chat._client.containers.files.retrieve(
+                    file_id=self.content,
+                    container_id=self.chat._container_id                
+                )
+                filename = os.path.basename(cfile.path)
+                content = f"File(filename='{filename}')"
             elif self.category == "upload":
                 content = f"File(filename='{self.content.name}')"
             return f"Block(category='{self.category}', content={content})"
@@ -512,7 +517,12 @@ class Chat():
             elif self.category == "image":
                 content = "Bytes"
             elif self.category == "download":
-                content = f"File(filename='{os.path.basename(self.content.filename)}')"
+                cfile = self.chat._client.containers.files.retrieve(
+                    file_id=self.content,
+                    container_id=self.chat._container_id                
+                )
+                filename = os.path.basename(cfile.path)
+                content = f"File(filename='{filename}')"
             elif self.category == "upload":
                 content = f"File(filename='{self.content.name}')"
             return {
