@@ -86,9 +86,9 @@ to create a chat interface.
 In the diagram, the uploaded file (`instructions.txt`) contains the following 
 content:
 
-```
-Create a 2x10 table with random numbers and save it as a CSV file, using 'X' and 'Y' as column names. Then, generate a scatter plot based on this table. Save the plot as a PNG file. Finally, display both the plot and the table.
-```
+"Create a 2x10 table with random numbers and save it as a CSV file, using 'X' 
+and 'Y' as column names. Then, generate a scatter plot based on this table. 
+Save the plot as a PNG file. Finally, display both the plot and the table."
 
 The assistant uses file search to retrieve the instructions from the uploaded 
 file, and the code interpreter to execute the instructions and generate the 
