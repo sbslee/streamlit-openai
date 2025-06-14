@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.1.1 (2025-06-15)
+* Fix a typo in `Chat.save`.
+* The welcome message is no longer shown when a user provides chat history.
+* Fix a bug causing incorrect handling of example messages.
+* Attachment file names are now included in user messages.
+
 ## 0.1.0 (2025-06-06)
 * Add support for OpenAI's Responses API and set it as the default.
 * Remove support for OpenAI's Chat Completions and Assistants APIs.

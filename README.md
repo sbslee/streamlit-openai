@@ -44,6 +44,7 @@ Here’s a quick overview of the package’s key features:
   - [Info Message](#info-message)
   - [Input Box Placeholder](#input-box-placeholder)
 - [Chat Completions and Assistants APIs](#chat-completions-and-assistants-apis)
+- [Changelog](#changelog)
 
 # Installation
 
@@ -79,8 +80,19 @@ $ streamlit run app.py
 
 # Schematic Diagram
 
-The following diagram illustrates the `Section` and `Block` classes used
-to create a chat interface:
+The diagram below illustrates the `Section` and `Block` classes used
+to create a chat interface.
+
+In the diagram, the uploaded file (`instructions.txt`) contains the following 
+content:
+
+"Create a 2x10 table with random numbers and save it as a CSV file, using 'X' 
+and 'Y' as column names. Then, generate a scatter plot based on this table. 
+Save the plot as a PNG file. Finally, display both the plot and the table."
+
+The assistant uses file search to retrieve the instructions from the uploaded 
+file, and the code interpreter to execute the instructions and generate the 
+output files.
 
 ![Schematic diagram](schematic_diagram.png)
 
@@ -475,6 +487,7 @@ options:
 # Customization
 
 ## Model Selection
+
 The default model used by the assistant in the chat interface is `gpt-4o`. You
 can customize the model used by the assistant by providing the `model` 
 parameter. Example:
@@ -490,6 +503,7 @@ st.session_state.chat.run()
 ```
 
 ## Temperature
+
 You can customize the temperature used by the assistant in the chat interface
 by providing the `temperature` parameter. The temperature controls the 
 randomness of the assistantant's responses. Example:
@@ -505,6 +519,7 @@ st.session_state.chat.run()
 ```
 
 ## Instructions
+
 You can customize the instructions provided to the assistant in the chat
 interface by providing the `instructions` parameter. The instructions provide 
 context for the assistant and can help guide its responses. Example:
@@ -522,6 +537,7 @@ st.session_state.chat.run()
 ```
 
 ## Avatar Image
+
 You can customize the avatar images for the assistant and user in the chat 
 interface by providing the `assistant_avatar` and `user_avatar` parameters. 
 Example:
@@ -537,8 +553,14 @@ st.session_state.chat.run()
 ```
 
 ## Welcome Message
+
 You can customize the welcome message displayed in the chat interface by
-providing the `welcome_message` parameter. Example:
+providing the `welcome_message` parameter.
+
+Note that if a chat history is provided, the welcom message will not be 
+displayed, as the chat history takes precedence.
+
+Example:
 
 ```python
 import streamlit as st
@@ -553,9 +575,15 @@ st.session_state.chat.run()
 ```
 
 ## Example Messages
+
 You can use the `example_messages` parameter to provide example messages in 
 the chat interface, helping users understand how to interact with the 
-assistant. Example:
+assistant.
+
+Note that if a chat history is provided, the example messages will not be 
+displayed, as the chat history takes precedence.
+
+Example:
 
 ```python
 import streamlit as st
@@ -575,6 +603,7 @@ st.session_state.chat.run()
 ```
 
 ## Info Message
+
 The `info_message` parameter displays a persistent message at the top of the 
 chat, guiding users on how to interact with the assistant. Example:
 
@@ -591,6 +620,7 @@ st.session_state.chat.run()
 ```
 
 ## Input Box Placeholder
+
 You can set custom placeholder text for the chat input box using the 
 `placeholder` parameter when initializing the `Chat` class. Example:
 
@@ -617,3 +647,6 @@ API for all new applications, as it offers a more powerful and flexible way
 to interact with their models. Starting with the 0.1.0 release, the package 
 has been updated to use the Responses API exclusively.
 
+# Changelog
+
+For a detailed list of changes, please refer to the [CHANGELOG](CHANGELOG.md).
