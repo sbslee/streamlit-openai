@@ -83,8 +83,8 @@ class Chat():
             user_avatar (str): An emoji, image URL, or file path that represents the user.
             assistant_avatar (str): An emoji, image URL, or file path that represents the assistant.
             placeholder (str): Placeholder text for the chat input box (default: "Your message").
-            welcome_message (str): Welcome message from the assistant.
-            example_messages (list): List of example messages for the user to choose from.
+            welcome_message (str): Welcome message from the assistant. Ignored if the chat history is provided.
+            example_messages (list): List of example messages for the user to choose from. Ignored if the chat history is provided.
             info_message (str): Information message to be displayed in the chat.
             vector_store_ids (list): List of vector store IDs for file search. Only used if file search is enabled.
             history (str): File path to the chat history ZIP file. If provided, the chat history will be loaded from this file.

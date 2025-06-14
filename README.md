@@ -544,7 +544,12 @@ st.session_state.chat.run()
 ## Welcome Message
 
 You can customize the welcome message displayed in the chat interface by
-providing the `welcome_message` parameter. Example:
+providing the `welcome_message` parameter.
+
+Note that if a chat history is provided, the welcom message will not be 
+displayed, as the chat history takes precedence.
+
+Example:
 
 ```python
 import streamlit as st
@@ -562,7 +567,12 @@ st.session_state.chat.run()
 
 You can use the `example_messages` parameter to provide example messages in 
 the chat interface, helping users understand how to interact with the 
-assistant. Example:
+assistant.
+
+Note that if a chat history is provided, the example messages will not be 
+displayed, as the chat history takes precedence.
+
+Example:
 
 ```python
 import streamlit as st
