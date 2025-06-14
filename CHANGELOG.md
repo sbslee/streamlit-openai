@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 0.1.1 (in development)
+## 0.1.1 (2025-06-15)
 * Fix a typo in `Chat.save`.
 * The welcome message is no longer shown when a user provides chat history.
 * Fix a bug causing incorrect handling of example messages.
