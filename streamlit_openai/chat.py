@@ -85,8 +85,8 @@ class Chat():
             placeholder (str): Placeholder text for the chat input box (default: "Your message").
             welcome_message (str): Welcome message from the assistant. Ignored if the chat history is provided.
             example_messages (list): List of example messages for the user to choose from. Ignored if the chat history is provided.
-            info_message (str): Information message to be displayed in the chat.
-            vector_store_ids (list): List of vector store IDs for file search. Only used if file search is enabled.
+            info_message (str): Information message to be displayed in the chat. This message is constantly displayed at the top of the chat interface.
+            vector_store_ids (list): List of vector store IDs for file search. Only used if file search is enabled. Maximum of two vector stores allowed.
             history (str): File path to the chat history ZIP file. If provided, the chat history will be loaded from this file.
             allow_code_interpreter (bool): Whether to allow code interpreter functionality (default: True).
             allow_file_search (bool): Whether to allow file search functionality (default: True).
