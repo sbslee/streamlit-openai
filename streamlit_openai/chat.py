@@ -68,6 +68,7 @@ class Chat():
         history: Optional[str] = None,
         allow_code_interpreter: Optional[bool] = True,
         allow_file_search: Optional[bool] = True,
+        allow_web_search: Optional[bool] = True,
     ) -> None:
         """
         Initializes a Chat instance.
@@ -90,6 +91,7 @@ class Chat():
             history (str): File path to the chat history ZIP file. If provided, the chat history will be loaded from this file.
             allow_code_interpreter (bool): Whether to allow code interpreter functionality (default: True).
             allow_file_search (bool): Whether to allow file search functionality (default: True).
+            allow_web_search (bool): Whether to allow web search functionality (default: True).
         """
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.model = model
@@ -108,6 +110,7 @@ class Chat():
         self.history = history
         self.allow_code_interpreter = allow_code_interpreter
         self.allow_file_search = allow_file_search
+        self.allow_web_search = allow_web_search
         self._client = openai.OpenAI(api_key=self.api_key)
         self._temp_dir = tempfile.TemporaryDirectory()
         self._selected_example = None
@@ -119,6 +122,9 @@ class Chat():
         self._tracked_files = []
         self._download_button_key = 0
         self._dynamic_vector_store = None
+
+        if self.allow_web_search:
+            self._tools.append({"type": "web_search"})
 
         if self.allow_code_interpreter:
             container = self._client.containers.create(name="container")

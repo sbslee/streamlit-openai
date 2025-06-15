@@ -21,7 +21,6 @@ Here’s a quick overview of the package’s key features:
 - [Features](#features)
   - [Function Calling](#function-calling)
     - [Image Generation Example](#image-generation-example)
-    - [Web Search Example](#web-search-example)
     - [Audio Transcription Example](#audio-transcription-example)
   - [File Inputs](#file-inputs)
     - [Message Attachments](#message-attachments)
@@ -31,6 +30,7 @@ Here’s a quick overview of the package’s key features:
   - [File Search](#file-search)
     - [PDF Vision Support](#pdf-vision-support)
     - [Vector Store Retrieval](#vector-store-retrieval)
+  - [Web Search](#web-search)
   - [Code Interpreter](#code-interpreter)
   - [Chat History](#chat-history)
   - [Storage Management](#storage-management)
@@ -145,48 +145,6 @@ if "chat" not in st.session_state:
 
     st.session_state.chat = streamlit_openai.Chat(
         functions=[generate_image]
-    )
-
-st.session_state.chat.run()
-```
-
-### Web Search Example
-You can create a custom function to search the web using a given query. Below 
-is an example:
-
-```python
-import streamlit as st
-import openai
-import streamlit_openai
-
-if "chat" not in st.session_state:
-    def handler(prompt):
-        client = openai.OpenAI()
-        response = client.chat.completions.create(
-            model="gpt-4o-search-preview",
-            web_search_options={},
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return response.choices[0].message.content
-    
-    search_web = streamlit_openai.CustomFunction(
-        name="search_web",
-        description="Search the web using a query.",
-        parameters={
-            "type": "object",
-            "properties": {
-                "prompt": {
-                    "type": "string",
-                    "description": "Search query.",
-                }
-            },
-            "required": ["prompt"]
-        },
-        handler=handler
-    )
-
-    st.session_state.chat = streamlit_openai.Chat(
-        functions=[search_web],
     )
 
 st.session_state.chat.run()
@@ -399,6 +357,26 @@ if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.Chat(
         vector_store_ids=["vs_...", "vs_..."]
     )
+st.session_state.chat.run()
+```
+
+## Web Search
+
+By default, the `Chat` class supports OpenAI's web search capability,
+allowing the assistant to retrieve up-to-date information from the web.
+To disable this feature, set `allow_web_search=False` when initializing
+the `Chat` class. Example:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Chat(
+        allow_web_search=True    # Enable web search (default)
+        # allow_web_search=False # Disable it
+    )
+
 st.session_state.chat.run()
 ```
 

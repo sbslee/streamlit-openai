@@ -1,6 +1,7 @@
 # CHANGELOG
 
 ## 0.1.2 (in development)
+* Add support for OpenAI's web search capability.
 
 ## 0.1.1 (2025-06-15)
 * Fix a typo in `Chat.save`.
