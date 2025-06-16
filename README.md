@@ -9,7 +9,7 @@ Here’s a quick overview of the package’s key features:
 
 - Easily create chat interfaces in Streamlit
 - Real-time streaming responses using the Responses API
-- Integration with OpenAI tools: function calling, file search, code interpreter, vision, and more
+- Integration with OpenAI tools: function calling, MCP, file search, code interpreter, vision, web search, and more
 - File input support for richer interactions
 - Fully customizable chat interface, including model selection, temperature settings, and more
 - Support for saving and retrieving chat history
@@ -22,6 +22,7 @@ Here’s a quick overview of the package’s key features:
   - [Function Calling](#function-calling)
     - [Image Generation Example](#image-generation-example)
     - [Audio Transcription Example](#audio-transcription-example)
+  - [Remote MCP](#remote-mcp)
   - [File Inputs](#file-inputs)
     - [Message Attachments](#message-attachments)
     - [Static File Upload](#static-file-upload)
@@ -189,6 +190,33 @@ if "chat" not in st.session_state:
         functions=[transcribe_audio],
     )
     
+st.session_state.chat.run()
+```
+
+## Remote MCP
+
+The `Chat` class supports OpenAI's remote MCP (Model Context Protocol) for 
+performing various tasks. To create a remote MCP, provide the required 
+parameters -- `server_label` and `server_url` -- when initializing the `Chat` 
+class. Depending on your use case, you may also need to specify additional 
+parameters such as `require_approval`, `headers`, and `allowed_tools`.
+
+Example:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    deepwiki = streamlit_openai.RemoteMCP(
+        server_label="deepwiki",
+        server_url="https://mcp.deepwiki.com/mcp",
+    )
+
+    st.session_state.chat = streamlit_openai.Chat(
+        mcps=[deepwiki]
+    )
+
 st.session_state.chat.run()
 ```
 
