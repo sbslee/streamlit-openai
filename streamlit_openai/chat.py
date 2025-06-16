@@ -184,14 +184,26 @@ class Chat():
                 with open(f"{t}/{self.history.replace('.zip', '')}/data.json", "r") as f:
                     data = json.load(f)
                     for section in data["sections"]:
-                        self.add_section(
-                            section["role"],
-                            blocks=[self.create_block(block["category"], block["content"]) for block in section["blocks"]]
-                        )
+                        self.add_section(section["role"], blocks=[])
                         for block in section["blocks"]:
+                            if block["category"] in ["text", "code"]:
+                                category = block["category"]
+                                content = block["content"]
+                            elif block["category"] == "image":
+                                category = "text"
+                                content = "<IMAGE BYTES>"
+                            elif block["category"] == "download":
+                                category = "text"
+                                content = "<DOWNLOAD " + block["content"] + ">"
+                            elif block["category"] == "upload":
+                                category = "text"
+                                content = "<UPLOAD " + block["content"] + ">"
+                            self._sections[-1].blocks.append(
+                                self.create_block(category, content)
+                            )
                             self._input.append({
                                 "role": section["role"],
-                                "content": block["content"]
+                                "content": content
                             })
 
     @property
