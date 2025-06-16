@@ -197,9 +197,10 @@ st.session_state.chat.run()
 
 The `Chat` class supports OpenAI's remote MCP (Model Context Protocol) for 
 performing various tasks. To create a remote MCP, provide the required 
-parameters -- `server_label` and `server_url` -- when initializing the `Chat` 
-class. Depending on your use case, you may also need to specify additional 
-parameters such as `require_approval`, `headers`, and `allowed_tools`.
+parameters -- `server_label` and `server_url` -- when initializing a 
+`RemoteMCP`. Depending on your use case, you may also need to specify 
+additional parameters such as `require_approval`, `headers`, and 
+`allowed_tools`.
 
 Example:
 
