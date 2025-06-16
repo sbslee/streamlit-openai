@@ -3,7 +3,7 @@ import openai
 import os, json, re, tempfile, zipfile, time
 from pathlib import Path
 from typing import Optional, List, Union, Literal, Dict, Any
-from .utils import CustomFunction
+from .utils import CustomFunction, RemoteMCP
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 DEVELOPER_MESSAGE = """
@@ -58,6 +58,7 @@ class Chat():
         accept_file: Union[bool, Literal["multiple"]] = "multiple",
         uploaded_files: Optional[List[str]] = None,
         functions: Optional[List[CustomFunction]] = None,
+        mcps: Optional[List[RemoteMCP]] = None,
         user_avatar: Optional[str] = None,
         assistant_avatar: Optional[str] = None,
         placeholder: Optional[str] = "Your message",
@@ -81,6 +82,7 @@ class Chat():
             accept_file (bool or str): Whether the chat input should accept files (True, False, or "multiple") (default: "multiple").
             uploaded_files (list): List of files to be uploaded to the assistant during initialization.
             functions (list): List of custom functions to be attached to the assistant.
+            mcps (list): List of RemoteMCP objects for using remote Model Context Protocol (MPC) servers.
             user_avatar (str): An emoji, image URL, or file path that represents the user.
             assistant_avatar (str): An emoji, image URL, or file path that represents the assistant.
             placeholder (str): Placeholder text for the chat input box (default: "Your message").
@@ -100,6 +102,7 @@ class Chat():
         self.accept_file = accept_file
         self.uploaded_files = uploaded_files
         self.functions = functions
+        self.mcps = mcps
         self.user_avatar = user_avatar
         self.assistant_avatar = assistant_avatar
         self.placeholder = placeholder
@@ -138,6 +141,17 @@ class Chat():
                     "name": function.name,
                     "description": function.description,
                     "parameters": function.parameters,
+                })
+
+        if self.mcps is not None:
+            for mcp in self.mcps:
+                self._tools.append({
+                    "type": "mcp",
+                    "server_label": mcp.server_label,
+                    "server_url": mcp.server_url,
+                    "require_approval": mcp.require_approval,
+                    "headers": mcp.headers,
+                    "allowed_tools": mcp.allowed_tools,
                 })
 
         # File search currently allows a maximum of two vector stores
