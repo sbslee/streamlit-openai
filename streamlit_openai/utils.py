@@ -11,11 +11,11 @@ class CustomFunction():
         handler (Callable): The actual function to be executed.
     """
     def __init__(
-            self,
-            name: str,
-            description: str,
-            parameters: Dict[str, Any],
-            handler: Callable,
+        self,
+        name: str,
+        description: str,
+        parameters: Dict[str, Any],
+        handler: Callable,
     ) -> None:
         self.name = name
         self.description = description
