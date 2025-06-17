@@ -186,7 +186,7 @@ class Chat():
                     for section in data["sections"]:
                         self.add_section(section["role"], blocks=[])
                         for block in section["blocks"]:
-                            if block["category"] in ["text", "code"]:
+                            if block["category"] in ["text", "code", "reasoning"]:
                                 category = block["category"]
                                 content = block["content"]
                             elif block["category"] == "image":
@@ -494,7 +494,7 @@ class Chat():
                 self.content = content
 
         def __repr__(self) -> None:
-            if self.category in ["text", "code"]:
+            if self.category in ["text", "code", "reasoning"]:
                 content = self.content
                 if len(content) > 30:
                     content = content[:30].strip() + "..."
@@ -523,7 +523,7 @@ class Chat():
             elif self.category == "code":
                 st.code(self.content)
             elif self.category == "reasoning":
-                with st.expander("", expanded=True, icon=":material/lightbulb:"):
+                with st.expander("", expanded=False, icon=":material/lightbulb:"):
                     st.markdown(self.content)
             elif self.category == "image":
                 st.image(self.content)
