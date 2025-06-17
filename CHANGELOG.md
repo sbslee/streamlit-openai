@@ -4,6 +4,7 @@
 * Add support for OpenAI's web search capability.
 * Add support for OpenAI's remote MCP capability.
 * Fix a bug causing incorrect handling of the history file.
+* Add support for OpenAI's reasoning capability.
 
 ## 0.1.1 (2025-06-15)
 * Fix a typo in `Chat.save`.

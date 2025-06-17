@@ -223,6 +223,7 @@ class Chat():
             tools=self._tools,
             previous_response_id=self._previous_response_id,
             stream=True,
+            reasoning={"summary": "auto"},
         )
         self._input = []
         tool_calls = {}
@@ -236,6 +237,10 @@ class Chat():
                 self.last_section.update_and_stream("code", event1.delta)
             elif event1.type == "response.output_item.done" and event1.item.type == "function_call":   
                 tool_calls[event1.item.name] = event1
+            elif event1.type == "response.reasoning_summary_text.delta":
+                self.last_section.update_and_stream("reasoning", event1.delta)
+            elif event1.type == "response.reasoning_summary_text.done":
+                self.last_section.last_block.content += "\n\n"
             elif event1.type == "response.output_text.annotation.added":
                 if event1.annotation["type"] == "file_citation":
                     pass
@@ -517,6 +522,9 @@ class Chat():
                 st.markdown(self.content)
             elif self.category == "code":
                 st.code(self.content)
+            elif self.category == "reasoning":
+                with st.expander("", expanded=True, icon=":material/lightbulb:"):
+                    st.markdown(self.content)
             elif self.category == "image":
                 st.image(self.content)
             elif self.category == "download":
@@ -544,7 +552,7 @@ class Chat():
 
         def to_dict(self) -> Dict[str, Any]:
             """Converts the block to a dictionary representation."""
-            if self.category in ["text", "code"]:
+            if self.category in ["text", "code", "reasoning"]:
                 content = self.content
             elif self.category == "image":
                 content = "Bytes"
@@ -604,7 +612,7 @@ class Chat():
             """Updates the section with new content, appending or extending existing blocks."""
             if self.empty:
                 self.blocks = [self.chat.create_block(category, content)]
-            elif category in ["text", "code"] and self.last_block.iscategory(category):
+            elif category in ["text", "code", "reasoning"] and self.last_block.iscategory(category):
                 self.last_block.content += content
             else:
                 self.blocks.append(self.chat.create_block(category, content))
