@@ -9,7 +9,7 @@ Here’s a quick overview of the package’s key features:
 
 - Easily create chat interfaces in Streamlit
 - Real-time streaming responses using the Responses API
-- Integration with OpenAI tools: function calling, MCP, file search, code interpreter, vision, web search, and more
+- Integration with OpenAI tools: reasoning, function calling, MCP, file search, code interpreter, vision, web search, and more
 - File input support for richer interactions
 - Fully customizable chat interface, including model selection, temperature settings, and more
 - Support for saving and retrieving chat history
