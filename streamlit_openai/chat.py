@@ -114,7 +114,7 @@ class Chat():
         self.allow_code_interpreter = allow_code_interpreter
         self.allow_file_search = allow_file_search
         self.allow_web_search = allow_web_search
-        self._client = openai.OpenAI(api_key=self.api_key)
+        self._client = openai.OpenAI(api_key=self.api_key) if os.getenv("AZURE_OPENAI_ENDPOINT") is None else openai.AzureOpenAI(api_key=self.api_key)
         self._temp_dir = tempfile.TemporaryDirectory()
         self._selected_example = None
         self._input = []
