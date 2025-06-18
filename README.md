@@ -23,6 +23,7 @@ Here’s a quick overview of the package’s key features:
     - [Image Generation Example](#image-generation-example)
     - [Web Search Example](#web-search-example)
     - [Audio Transcription Example](#audio-transcription-example)
+  - [Reasoning](#reasoning)
   - [Remote MCP](#remote-mcp)
   - [File Inputs](#file-inputs)
     - [Message Attachments](#message-attachments)
@@ -247,6 +248,31 @@ if "chat" not in st.session_state:
         functions=[transcribe_audio],
     )
     
+st.session_state.chat.run()
+```
+
+## Reasoning
+
+The `Chat` class supports OpenAI's reasoning capabilities, allowing the
+assistant to perform complex reasoning tasks. To enable reasoning, select a 
+reasoning model when initializing the `Chat` class (e.g., `model="o3"`). 
+Depending on the selected model, you may need to disable some features that 
+are not compatible with reasoning. For example, web search is not supported 
+with reasoning models, so you should set `allow_web_search=False` when 
+initializing the `Chat` class.
+
+Example:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Chat(
+        model="o3",             # Select a reasoning model
+        allow_web_search=False, # Disable web search
+    )
+
 st.session_state.chat.run()
 ```
 
