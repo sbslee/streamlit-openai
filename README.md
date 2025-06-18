@@ -160,6 +160,13 @@ st.session_state.chat.run()
 ```
 
 ### Web Search Example
+
+Update: As of the 0.1.2 release, the `streamlit_openai` package natively 
+supports web search (see [Web Search](#web-search)). Therefore, creating a 
+custom function for this purpose is no longer necessary. However, if you 
+prefer to define a custom web search function, you can still do so using the 
+`CustomFunction` class.
+
 You can create a custom function to search the web using a given query. Below 
 is an example:
 
