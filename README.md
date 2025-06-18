@@ -9,7 +9,7 @@ Here’s a quick overview of the package’s key features:
 
 - Easily create chat interfaces in Streamlit
 - Real-time streaming responses using the Responses API
-- Integration with OpenAI tools: reasoning, function calling, MCP, file search, code interpreter, vision, image generation, web search, and more
+- Integration with OpenAI tools: reasoning, function calling, remote MCP, file search, code interpreter, vision, image generation, web search, and more
 - File input support for richer interactions
 - Fully customizable chat interface, including model selection, temperature settings, and more
 - Support for saving and retrieving chat history
@@ -29,6 +29,7 @@ Here’s a quick overview of the package’s key features:
     - [Static File Upload](#static-file-upload)
     - [File Uploader Widget](#file-uploader-widget)
   - [Vision](#vision)
+  - [Image Generation](#image-generation)
   - [File Search](#file-search)
     - [PDF Vision Support](#pdf-vision-support)
     - [Vector Store Retrieval](#vector-store-retrieval)
@@ -108,6 +109,12 @@ function calling capabilities. To create a custom function, provide the
 a `CustomFunction`.
 
 ### Image Generation Example
+
+Update: As of the 0.1.2 release, the `streamlit_openai` package natively 
+supports image generation (see [Image Generation](#image-generation)) 
+Therefore, creating a custom function for this purpose is no longer necessary. 
+However, if you prefer to define a custom image generation function, you can 
+still do so using the `CustomFunction` class.
 
 Below is an example of a custom function that generates an image based on a 
 user-provided prompt:
@@ -343,6 +350,26 @@ import streamlit_openai
 if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.Chat(
         uploaded_files=["example.jpeg"]
+    )
+
+st.session_state.chat.run()
+```
+
+## Image Generation
+
+The `Chat` class supports OpenAI's image generation capabilities, allowing the
+assistant to generate images based on user prompts. By default, this feature is
+enabled, but you can disable it by setting `allow_image_generation=False` when
+initializing the `Chat` class. Example:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Chat(
+        allow_image_generation=True,    # Enable image generation (default)
+        # allow_image_generation=False, # Disable it
     )
 
 st.session_state.chat.run()
