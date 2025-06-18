@@ -21,6 +21,7 @@ Here’s a quick overview of the package’s key features:
 - [Features](#features)
   - [Function Calling](#function-calling)
     - [Image Generation Example](#image-generation-example)
+    - [Web Search Example](#web-search-example)
     - [Audio Transcription Example](#audio-transcription-example)
   - [Remote MCP](#remote-mcp)
   - [File Inputs](#file-inputs)
@@ -146,6 +147,48 @@ if "chat" not in st.session_state:
 
     st.session_state.chat = streamlit_openai.Chat(
         functions=[generate_image]
+    )
+
+st.session_state.chat.run()
+```
+
+### Web Search Example
+You can create a custom function to search the web using a given query. Below 
+is an example:
+
+```python
+import streamlit as st
+import openai
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    def handler(prompt):
+        client = openai.OpenAI()
+        response = client.chat.completions.create(
+            model="gpt-4o-search-preview",
+            web_search_options={},
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.choices[0].message.content
+    
+    search_web = streamlit_openai.CustomFunction(
+        name="search_web",
+        description="Search the web using a query.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "Search query.",
+                }
+            },
+            "required": ["prompt"]
+        },
+        handler=handler
+    )
+
+    st.session_state.chat = streamlit_openai.Chat(
+        functions=[search_web],
     )
 
 st.session_state.chat.run()
