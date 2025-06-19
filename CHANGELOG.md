@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 0.1.2 (in development)
+## 0.1.2 (2025-06-19)
 * Add support for OpenAI's web search capability.
 * Add support for OpenAI's remote MCP capability.
 * Fix a bug causing incorrect handling of the history file.
