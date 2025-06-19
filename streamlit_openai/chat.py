@@ -531,7 +531,8 @@ class Chat():
             if self.category == "text":
                 st.markdown(self.content)
             elif self.category == "code":
-                st.code(self.content)
+                with st.expander("", expanded=False, icon=":material/code:"):
+                    st.code(self.content)
             elif self.category == "reasoning":
                 with st.expander("", expanded=False, icon=":material/lightbulb:"):
                     st.markdown(self.content)
