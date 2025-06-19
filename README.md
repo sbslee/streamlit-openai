@@ -9,7 +9,7 @@ Here’s a quick overview of the package’s key features:
 
 - Easily create chat interfaces in Streamlit
 - Real-time streaming responses using the Responses API
-- Integration with OpenAI tools: function calling, file search, code interpreter, vision, and more
+- Integration with OpenAI tools: reasoning, function calling, remote MCP, file search, code interpreter, vision, image generation, web search, and more
 - File input support for richer interactions
 - Fully customizable chat interface, including model selection, temperature settings, and more
 - Support for saving and retrieving chat history
@@ -23,14 +23,18 @@ Here’s a quick overview of the package’s key features:
     - [Image Generation Example](#image-generation-example)
     - [Web Search Example](#web-search-example)
     - [Audio Transcription Example](#audio-transcription-example)
+  - [Reasoning](#reasoning)
+  - [Remote MCP](#remote-mcp)
   - [File Inputs](#file-inputs)
     - [Message Attachments](#message-attachments)
     - [Static File Upload](#static-file-upload)
     - [File Uploader Widget](#file-uploader-widget)
   - [Vision](#vision)
+  - [Image Generation](#image-generation)
   - [File Search](#file-search)
     - [PDF Vision Support](#pdf-vision-support)
     - [Vector Store Retrieval](#vector-store-retrieval)
+  - [Web Search](#web-search)
   - [Code Interpreter](#code-interpreter)
   - [Chat History](#chat-history)
   - [Storage Management](#storage-management)
@@ -107,6 +111,12 @@ a `CustomFunction`.
 
 ### Image Generation Example
 
+Update: As of the 0.1.2 release, the `streamlit_openai` package natively 
+supports image generation (see [Image Generation](#image-generation)) 
+Therefore, creating a custom function for this purpose is no longer necessary. 
+However, if you prefer to define a custom image generation function, you can 
+still do so using the `CustomFunction` class.
+
 Below is an example of a custom function that generates an image based on a 
 user-provided prompt:
 
@@ -151,6 +161,13 @@ st.session_state.chat.run()
 ```
 
 ### Web Search Example
+
+Update: As of the 0.1.2 release, the `streamlit_openai` package natively 
+supports web search (see [Web Search](#web-search)). Therefore, creating a 
+custom function for this purpose is no longer necessary. However, if you 
+prefer to define a custom web search function, you can still do so using the 
+`CustomFunction` class.
+
 You can create a custom function to search the web using a given query. Below 
 is an example:
 
@@ -231,6 +248,59 @@ if "chat" not in st.session_state:
         functions=[transcribe_audio],
     )
     
+st.session_state.chat.run()
+```
+
+## Reasoning
+
+The `Chat` class supports OpenAI's reasoning capabilities, allowing the
+assistant to perform complex reasoning tasks. To enable reasoning, select a 
+reasoning model when initializing the `Chat` class (e.g., `model="o3"`). 
+Depending on the selected model, you may need to disable some features that 
+are not compatible with reasoning. For example, web search is not supported 
+with reasoning models, so you should set `allow_web_search=False` when 
+initializing the `Chat` class.
+
+Example:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Chat(
+        model="o3",             # Select a reasoning model
+        allow_web_search=False, # Disable web search
+    )
+
+st.session_state.chat.run()
+```
+
+## Remote MCP
+
+The `Chat` class supports OpenAI's remote MCP (Model Context Protocol) for 
+performing various tasks. To create a remote MCP, provide the required 
+parameters -- `server_label` and `server_url` -- when initializing a 
+`RemoteMCP`. Depending on your use case, you may also need to specify 
+additional parameters such as `require_approval`, `headers`, and 
+`allowed_tools`.
+
+Example:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    deepwiki = streamlit_openai.RemoteMCP(
+        server_label="deepwiki",
+        server_url="https://mcp.deepwiki.com/mcp",
+    )
+
+    st.session_state.chat = streamlit_openai.Chat(
+        mcps=[deepwiki]
+    )
+
 st.session_state.chat.run()
 ```
 
@@ -318,6 +388,26 @@ if "chat" not in st.session_state:
 st.session_state.chat.run()
 ```
 
+## Image Generation
+
+The `Chat` class supports OpenAI's image generation capabilities, allowing the
+assistant to generate images based on user prompts. By default, this feature is
+enabled, but you can disable it by setting `allow_image_generation=False` when
+initializing the `Chat` class. Example:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Chat(
+        allow_image_generation=True,    # Enable image generation (default)
+        # allow_image_generation=False, # Disable it
+    )
+
+st.session_state.chat.run()
+```
+
 ## File Search
 
 The `Chat` class supports file search capabilities, enabling the assistant to 
@@ -399,6 +489,26 @@ if "chat" not in st.session_state:
     st.session_state.chat = streamlit_openai.Chat(
         vector_store_ids=["vs_...", "vs_..."]
     )
+st.session_state.chat.run()
+```
+
+## Web Search
+
+By default, the `Chat` class supports OpenAI's web search capability,
+allowing the assistant to retrieve up-to-date information from the web.
+To disable this feature, set `allow_web_search=False` when initializing
+the `Chat` class. Example:
+
+```python
+import streamlit as st
+import streamlit_openai
+
+if "chat" not in st.session_state:
+    st.session_state.chat = streamlit_openai.Chat(
+        allow_web_search=True    # Enable web search (default)
+        # allow_web_search=False # Disable it
+    )
+
 st.session_state.chat.run()
 ```
 

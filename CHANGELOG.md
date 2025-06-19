@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.1.2 (2025-06-19)
+* Add support for OpenAI's web search capability.
+* Add support for OpenAI's remote MCP capability.
+* Fix a bug causing incorrect handling of the history file.
+* Add support for OpenAI's reasoning capability.
+* Add support for OpenAI's image generation capability.
+* Code blocks are now rendered as collapsible.
+
 ## 0.1.1 (2025-06-15)
 * Fix a typo in `Chat.save`.
 * The welcome message is no longer shown when a user provides chat history.

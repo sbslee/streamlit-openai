@@ -1,9 +1,9 @@
 import streamlit as st
 import openai
-import os, json, re, tempfile, zipfile, time
+import os, json, re, tempfile, zipfile, time, base64
 from pathlib import Path
 from typing import Optional, List, Union, Literal, Dict, Any
-from .utils import CustomFunction
+from .utils import CustomFunction, RemoteMCP
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 DEVELOPER_MESSAGE = """
@@ -58,6 +58,7 @@ class Chat():
         accept_file: Union[bool, Literal["multiple"]] = "multiple",
         uploaded_files: Optional[List[str]] = None,
         functions: Optional[List[CustomFunction]] = None,
+        mcps: Optional[List[RemoteMCP]] = None,
         user_avatar: Optional[str] = None,
         assistant_avatar: Optional[str] = None,
         placeholder: Optional[str] = "Your message",
@@ -68,6 +69,8 @@ class Chat():
         history: Optional[str] = None,
         allow_code_interpreter: Optional[bool] = True,
         allow_file_search: Optional[bool] = True,
+        allow_web_search: Optional[bool] = True,
+        allow_image_generation: Optional[bool] = True,
     ) -> None:
         """
         Initializes a Chat instance.
@@ -80,6 +83,7 @@ class Chat():
             accept_file (bool or str): Whether the chat input should accept files (True, False, or "multiple") (default: "multiple").
             uploaded_files (list): List of files to be uploaded to the assistant during initialization.
             functions (list): List of custom functions to be attached to the assistant.
+            mcps (list): List of RemoteMCP objects for using remote Model Context Protocol (MPC) servers.
             user_avatar (str): An emoji, image URL, or file path that represents the user.
             assistant_avatar (str): An emoji, image URL, or file path that represents the assistant.
             placeholder (str): Placeholder text for the chat input box (default: "Your message").
@@ -90,6 +94,8 @@ class Chat():
             history (str): File path to the chat history ZIP file. If provided, the chat history will be loaded from this file.
             allow_code_interpreter (bool): Whether to allow code interpreter functionality (default: True).
             allow_file_search (bool): Whether to allow file search functionality (default: True).
+            allow_web_search (bool): Whether to allow web search functionality (default: True).
+            allow_image_generation (bool): Whether to allow image generation functionality (default: True).
         """
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.model = model
@@ -98,6 +104,7 @@ class Chat():
         self.accept_file = accept_file
         self.uploaded_files = uploaded_files
         self.functions = functions
+        self.mcps = mcps
         self.user_avatar = user_avatar
         self.assistant_avatar = assistant_avatar
         self.placeholder = placeholder
@@ -108,6 +115,8 @@ class Chat():
         self.history = history
         self.allow_code_interpreter = allow_code_interpreter
         self.allow_file_search = allow_file_search
+        self.allow_web_search = allow_web_search
+        self.allow_image_generation = allow_image_generation
         self._client = openai.OpenAI(api_key=self.api_key)
         self._temp_dir = tempfile.TemporaryDirectory()
         self._selected_example = None
@@ -119,6 +128,12 @@ class Chat():
         self._tracked_files = []
         self._download_button_key = 0
         self._dynamic_vector_store = None
+
+        if self.allow_web_search:
+            self._tools.append({"type": "web_search"})
+
+        if self.allow_image_generation:
+            self._tools.append({"type": "image_generation", "partial_images": 3})
 
         if self.allow_code_interpreter:
             container = self._client.containers.create(name="container")
@@ -132,6 +147,17 @@ class Chat():
                     "name": function.name,
                     "description": function.description,
                     "parameters": function.parameters,
+                })
+
+        if self.mcps is not None:
+            for mcp in self.mcps:
+                self._tools.append({
+                    "type": "mcp",
+                    "server_label": mcp.server_label,
+                    "server_url": mcp.server_url,
+                    "require_approval": mcp.require_approval,
+                    "headers": mcp.headers,
+                    "allowed_tools": mcp.allowed_tools,
                 })
 
         # File search currently allows a maximum of two vector stores
@@ -164,14 +190,26 @@ class Chat():
                 with open(f"{t}/{self.history.replace('.zip', '')}/data.json", "r") as f:
                     data = json.load(f)
                     for section in data["sections"]:
-                        self.add_section(
-                            section["role"],
-                            blocks=[self.create_block(block["category"], block["content"]) for block in section["blocks"]]
-                        )
+                        self.add_section(section["role"], blocks=[])
                         for block in section["blocks"]:
+                            if block["category"] in ["text", "code", "reasoning"]:
+                                category = block["category"]
+                                content = block["content"]
+                            elif block["category"] in ["image", "generated_image"]:
+                                category = "text"
+                                content = "<IMAGE BYTES>"
+                            elif block["category"] == "download":
+                                category = "text"
+                                content = "<DOWNLOAD " + block["content"] + ">"
+                            elif block["category"] == "upload":
+                                category = "text"
+                                content = "<UPLOAD " + block["content"] + ">"
+                            self._sections[-1].blocks.append(
+                                self.create_block(category, content)
+                            )
                             self._input.append({
                                 "role": section["role"],
-                                "content": block["content"]
+                                "content": content
                             })
 
     @property
@@ -191,6 +229,7 @@ class Chat():
             tools=self._tools,
             previous_response_id=self._previous_response_id,
             stream=True,
+            reasoning={"summary": "auto"},
         )
         self._input = []
         tool_calls = {}
@@ -204,6 +243,14 @@ class Chat():
                 self.last_section.update_and_stream("code", event1.delta)
             elif event1.type == "response.output_item.done" and event1.item.type == "function_call":   
                 tool_calls[event1.item.name] = event1
+            elif event1.type == "response.reasoning_summary_text.delta":
+                self.last_section.update_and_stream("reasoning", event1.delta)
+            elif event1.type == "response.reasoning_summary_text.done":
+                self.last_section.last_block.content += "\n\n"
+            elif event1.type == "response.image_generation_call.partial_image":
+                image_base64 = event1.partial_image_b64
+                image_bytes = base64.b64decode(image_base64)
+                self.last_section.update_and_stream("generated_image", image_bytes)
             elif event1.type == "response.output_text.annotation.added":
                 if event1.annotation["type"] == "file_citation":
                     pass
@@ -444,7 +491,7 @@ class Chat():
             
             Args:
                 chat (Chat): The parent Chat object.
-                category (str): The type of content ('text', 'code', 'image', 'download', 'upload').
+                category (str): The type of content ('text', 'code', 'image', 'generated_image', 'download', 'upload').
                 content (str, bytes, or openai.File): The actual content of the block. This can be a string for text or code, bytes for images, or an `openai.File` object for downloadable files.
             """
             self.chat = chat
@@ -457,12 +504,12 @@ class Chat():
                 self.content = content
 
         def __repr__(self) -> None:
-            if self.category in ["text", "code"]:
+            if self.category in ["text", "code", "reasoning"]:
                 content = self.content
                 if len(content) > 30:
                     content = content[:30].strip() + "..."
                 content = repr(content)
-            elif self.category == "image":
+            elif self.category in ["image", "generated_image"]:
                 content = "Bytes"
             elif self.category == "download":
                 cfile = self.chat._client.containers.files.retrieve(
@@ -484,8 +531,12 @@ class Chat():
             if self.category == "text":
                 st.markdown(self.content)
             elif self.category == "code":
-                st.code(self.content)
-            elif self.category == "image":
+                with st.expander("", expanded=False, icon=":material/code:"):
+                    st.code(self.content)
+            elif self.category == "reasoning":
+                with st.expander("", expanded=False, icon=":material/lightbulb:"):
+                    st.markdown(self.content)
+            elif self.category in ["image", "generated_image"]:
                 st.image(self.content)
             elif self.category == "download":
                 cfile_content = self.chat._client.containers.files.content.retrieve(
@@ -512,9 +563,9 @@ class Chat():
 
         def to_dict(self) -> Dict[str, Any]:
             """Converts the block to a dictionary representation."""
-            if self.category in ["text", "code"]:
+            if self.category in ["text", "code", "reasoning"]:
                 content = self.content
-            elif self.category == "image":
+            elif self.category in ["image", "generated_image"]:
                 content = "Bytes"
             elif self.category == "download":
                 cfile = self.chat._client.containers.files.retrieve(
@@ -572,8 +623,10 @@ class Chat():
             """Updates the section with new content, appending or extending existing blocks."""
             if self.empty:
                 self.blocks = [self.chat.create_block(category, content)]
-            elif category in ["text", "code"] and self.last_block.iscategory(category):
+            elif category in ["text", "code", "reasoning"] and self.last_block.iscategory(category):
                 self.last_block.content += content
+            elif category == "generated_image" and self.last_block.iscategory(category):
+                self.last_block.content = content
             else:
                 self.blocks.append(self.chat.create_block(category, content))
 
