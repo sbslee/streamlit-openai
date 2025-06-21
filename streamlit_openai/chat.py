@@ -221,8 +221,11 @@ class Chat():
                                 content = f.read()
                             self.track(uploaded_file)
                         elif block["category"] == "upload":
-                            category = "text"
-                            content = "<UPLOAD " + block["content"] + ">"
+                            uploaded_file = f"{t}/{self.history.replace('.zip', '')}/{filename}"
+                            category = "upload"
+                            with open(uploaded_file, "rb") as f:
+                                content = f.read()
+                            self.track(uploaded_file)
                         self._sections[-1].blocks.append(
                             self.create_block(category, content, filename=filename, file_id=file_id)
                         )
@@ -342,7 +345,12 @@ class Chat():
                 if attachments:
                     for attachment in attachments:
                         st.markdown(f":material/attach_file: `{attachment.name}`")
-                        section.update("upload", attachment)
+                        section.update(
+                            "upload",
+                            attachment.getvalue(),
+                            filename=attachment.name,
+                            file_id=attachment.file_id
+                        )
                 st.markdown(prompt)
                 section.update("text", prompt)
             self._sections.append(section)
@@ -555,7 +563,7 @@ class Chat():
             elif self.category == "download":
                 content = "Bytes"
             elif self.category == "upload":
-                content = f"File(filename='{self.content.name}')"
+                content = "Bytes"
             return f"Block(category='{self.category}', content={content}, filename='{self.filename}', file_id='{self.file_id}')"
 
         def iscategory(self, category) -> bool:
@@ -586,7 +594,7 @@ class Chat():
                 )
                 self.chat._download_button_key += 1
             elif self.category == "upload":
-                st.markdown(f":material/attach_file: `{self.content.name}`")
+                st.markdown(f":material/attach_file: `{self.filename}`")
 
         def save(self, t) -> Dict[str, Any]:
             """Converts the block to a dictionary representation."""
@@ -599,9 +607,11 @@ class Chat():
             elif self.category == "download":
                 with open(f"{t}/{self.filename}", "wb") as f:
                     f.write(self.content)
-                content = f"File"
+                content = "Bytes"
             elif self.category == "upload":
-                content = f"File(filename='{self.content.name}')"
+                with open(f"{t}/{self.filename}", "wb") as f:
+                    f.write(self.content)
+                content = "Bytes"
             return {
                 "category": self.category,
                 "content": content,
