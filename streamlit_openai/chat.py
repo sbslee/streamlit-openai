@@ -207,9 +207,9 @@ class Chat():
                                 "role": section["role"],
                                 "content": block["content"]
                             })
-                            self._sections[-1].blocks.append(
-                                self.create_block(block["category"], block["content"])
-                            )
+                            self._sections[-1].blocks.append(self.create_block(
+                                block["category"], block["content"]
+                            ))
                         else:
                             uploaded_file = f"{dir_path}/{block['filename']}"
                             with open(uploaded_file, "rb") as f:
