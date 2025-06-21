@@ -196,39 +196,31 @@ class Chat():
         with tempfile.TemporaryDirectory() as t:
             with zipfile.ZipFile(history, "r") as f:
                 f.extractall(t)
-            with open(f"{t}/{self.history.replace('.zip', '')}/data.json", "r") as f:
+            dir_path = f"{t}/{self.history.replace('.zip', '')}" 
+            with open(f"{dir_path}/data.json", "r") as f:
                 data = json.load(f)
                 for section in data["sections"]:
                     self.add_section(section["role"], blocks=[])
                     for block in section["blocks"]:
-                        category = block["category"]
-                        content = block["content"]
-                        filename = block["filename"]
-                        file_id = block["file_id"]
                         if block["category"] in ["text", "code", "reasoning"]:
                             self._input.append({
                                 "role": section["role"],
-                                "content": content
+                                "content": block["content"]
                             })
-                        elif block["category"] in ["image", "generated_image"]:
-                            uploaded_file = f"{t}/{self.history.replace('.zip', '')}/{filename}"
+                            self._sections[-1].blocks.append(
+                                self.create_block(block["category"], block["content"])
+                            )
+                        else:
+                            uploaded_file = f"{dir_path}/{block['filename']}"
                             with open(uploaded_file, "rb") as f:
                                 content = f.read()
                             self.track(uploaded_file)
-                        elif block["category"] == "download":
-                            uploaded_file = f"{t}/{self.history.replace('.zip', '')}/{filename}"
-                            with open(uploaded_file, "rb") as f:
-                                content = f.read()
-                            self.track(uploaded_file)
-                        elif block["category"] == "upload":
-                            uploaded_file = f"{t}/{self.history.replace('.zip', '')}/{filename}"
-                            category = "upload"
-                            with open(uploaded_file, "rb") as f:
-                                content = f.read()
-                            self.track(uploaded_file)
-                        self._sections[-1].blocks.append(
-                            self.create_block(category, content, filename=filename, file_id=file_id)
-                        )
+                            self._sections[-1].blocks.append(self.create_block(
+                                block["category"],
+                                content,
+                                filename=block["filename"],
+                                file_id=block["file_id"]
+                            ))
 
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
