@@ -212,9 +212,8 @@ class Chat():
                             })
                         elif block["category"] in ["image", "generated_image"]:
                             category = block["category"]
-                            data = dict(re.findall(r"(\w+)\s*=\s*'([^']*)'", block["content"]))
-                            filename = data["filename"]
-                            file_id = data["file_id"]
+                            filename = block["filename"]
+                            file_id = block["file_id"]
                             uploaded_file = f"{t}/{self.history.replace('.zip', '')}/{filename}"
                             with open(uploaded_file, "rb") as f:
                                 content = f.read()
@@ -262,7 +261,12 @@ class Chat():
             elif event1.type == "response.image_generation_call.partial_image":
                 image_base64 = event1.partial_image_b64
                 image_bytes = base64.b64decode(image_base64)
-                self.last_section.update_and_stream("generated_image", image_bytes)
+                self.last_section.update_and_stream(
+                    "generated_image",
+                    image_bytes,
+                    filename=f"{event1.item_id}.{event1.output_format}",
+                    file_id=event1.item_id
+                )
             elif event1.type == "response.output_text.annotation.added":
                 if event1.annotation["type"] == "file_citation":
                     pass
@@ -549,7 +553,7 @@ class Chat():
                 content = f"File(filename='{filename}')"
             elif self.category == "upload":
                 content = f"File(filename='{self.content.name}')"
-            return f"Block(category='{self.category}', content={content})"
+            return f"Block(category='{self.category}', content={content}, filename='{self.filename}', file_id='{self.file_id}')"
 
         def iscategory(self, category) -> bool:
             """Checks if the block belongs to the specified category."""
@@ -597,19 +601,21 @@ class Chat():
             elif self.category in ["image", "generated_image"]:
                 with open(f"{t}/{self.filename}", "wb") as f:
                     f.write(self.content)
-                content = f"File(category='{self.category}', filename='{self.filename}', file_id='{self.file_id}')"
+                content = "Bytes"
             elif self.category == "download":
                 cfile = self.chat._client.containers.files.retrieve(
                     file_id=self.content,
                     container_id=self.chat._container_id                
                 )
                 filename = os.path.basename(cfile.path)
-                content = f"File(category='download', filename='{filename}')"
+                content = f"File(filename='{filename}')"
             elif self.category == "upload":
-                content = f"File(filename='upload', '{self.content.name}')"
+                content = f"File(filename='{self.content.name}')"
             return {
                 "category": self.category,
                 "content": content,
+                "filename": self.filename,
+                "file_id": self.file_id,
             }
 
     def create_block(self, category, content=None, filename=None, file_id=None) -> "Block":
@@ -655,7 +661,9 @@ class Chat():
         def update(self, category, content, filename=None, file_id=None) -> None:
             """Updates the section with new content, appending or extending existing blocks."""
             if self.empty:
-                self.blocks = [self.chat.create_block(category, content)]
+                self.blocks = [self.chat.create_block(
+                    category, content, filename=filename, file_id=file_id
+                )]
             elif category in ["text", "code", "reasoning"] and self.last_block.iscategory(category):
                 self.last_block.content += content
             elif category == "generated_image" and self.last_block.iscategory(category):
