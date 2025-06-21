@@ -182,40 +182,52 @@ class Chat():
 
         # If a chat history file is provided, load the chat history
         if self.history is not None:
-            if not self.history.endswith(".zip"):
-                raise ValueError("History file must end with .zip")
-            with tempfile.TemporaryDirectory() as t:
-                with zipfile.ZipFile(self.history, "r") as f:
-                    f.extractall(t)
-                with open(f"{t}/{self.history.replace('.zip', '')}/data.json", "r") as f:
-                    data = json.load(f)
-                    for section in data["sections"]:
-                        self.add_section(section["role"], blocks=[])
-                        for block in section["blocks"]:
-                            if block["category"] in ["text", "code", "reasoning"]:
-                                category = block["category"]
-                                content = block["content"]
-                            elif block["category"] in ["image", "generated_image"]:
-                                category = "text"
-                                content = "<IMAGE BYTES>"
-                            elif block["category"] == "download":
-                                category = "text"
-                                content = "<DOWNLOAD " + block["content"] + ">"
-                            elif block["category"] == "upload":
-                                category = "text"
-                                content = "<UPLOAD " + block["content"] + ">"
-                            self._sections[-1].blocks.append(
-                                self.create_block(category, content)
-                            )
-                            self._input.append({
-                                "role": section["role"],
-                                "content": content
-                            })
+            self.load(self.history)
 
     @property
     def last_section(self) -> Optional["Section"]:
         """Returns the last section of the chat."""
         return self._sections[-1] if self._sections else None
+
+    def load(self, history) -> None:
+        """Loads the chat history from a ZIP file."""
+        if not history.endswith(".zip"):
+            raise ValueError("History file must end with .zip")
+        with tempfile.TemporaryDirectory() as t:
+            with zipfile.ZipFile(history, "r") as f:
+                f.extractall(t)
+            with open(f"{t}/{self.history.replace('.zip', '')}/data.json", "r") as f:
+                data = json.load(f)
+                for section in data["sections"]:
+                    self.add_section(section["role"], blocks=[])
+                    for block in section["blocks"]:
+                        filename = None
+                        file_id = None
+                        if block["category"] in ["text", "code", "reasoning"]:
+                            category = block["category"]
+                            content = block["content"]
+                            self._input.append({
+                                "role": section["role"],
+                                "content": content
+                            })
+                        elif block["category"] in ["image", "generated_image"]:
+                            category = block["category"]
+                            data = dict(re.findall(r"(\w+)\s*=\s*'([^']*)'", block["content"]))
+                            filename = data["filename"]
+                            file_id = data["file_id"]
+                            uploaded_file = f"{t}/{self.history.replace('.zip', '')}/{filename}"
+                            with open(uploaded_file, "rb") as f:
+                                content = f.read()
+                            self.track(uploaded_file)
+                        elif block["category"] == "download":
+                            category = "text"
+                            content = "<DOWNLOAD " + block["content"] + ">"
+                        elif block["category"] == "upload":
+                            category = "text"
+                            content = "<UPLOAD " + block["content"] + ">"
+                        self._sections[-1].blocks.append(
+                            self.create_block(category, content, filename=filename, file_id=file_id)
+                        )
 
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
@@ -261,7 +273,12 @@ class Chat():
                                 file_id=event1.annotation["file_id"],
                                 container_id=self._container_id
                             )
-                            self.last_section.update_and_stream("image", image_content.read())
+                            self.last_section.update_and_stream(
+                                "image",
+                                image_content.read(),
+                                filename=event1.annotation["filename"],
+                                file_id=event1.annotation["file_id"]
+                            )
                     else:
                         self.last_section.update_and_stream("download", event1.annotation["file_id"])
         if tool_calls:
@@ -353,10 +370,10 @@ class Chat():
         """Saves the chat history to a ZIP file."""
         if not file_path.endswith(".zip"):
             raise ValueError("File path must end with .zip")
-        data = {
-            "sections": [section.to_dict() for section in self._sections],
-        }
         with tempfile.TemporaryDirectory() as t:
+            data = {
+                "sections": [section.save(t) for section in self._sections],
+            }
             with open(f"{t}/data.json", "w") as f:
                 json.dump(data, f, indent=4)
             with zipfile.ZipFile(file_path, "w", zipfile.ZIP_DEFLATED) as f:
@@ -422,6 +439,13 @@ class Chat():
                 except Exception as e:
                     pass
 
+            if self._file_path.suffix in VISION_EXTENSIONS:
+                self._vision_file = self.chat._client.files.create(file=self._file_path, purpose="vision")
+                self.chat._input.append({
+                    "role": "user",
+                    "content": [{"type": "input_image", "file_id": self._vision_file.id}]
+                })
+
             if self.chat.allow_code_interpreter and self._file_path.suffix in CODE_INTERPRETER_EXTENSIONS:
                 if self._openai_file is None:
                     with open(self._file_path, "rb") as f:
@@ -462,13 +486,6 @@ class Chat():
                         "vector_store_ids": [self.chat._dynamic_vector_store.id]
                     })
 
-            if self._file_path.suffix in VISION_EXTENSIONS:
-                self._vision_file = self.chat._client.files.create(file=self._file_path, purpose="vision")
-                self.chat._input.append({
-                    "role": "user",
-                    "content": [{"type": "input_image", "file_id": self._vision_file.id}]
-                })
-
         def __repr__(self) -> None:
             return f"TrackedFile(uploaded_file='{self._file_path.name}')"
         
@@ -485,6 +502,8 @@ class Chat():
                 chat: "Chat",
                 category: str,
                 content: Optional[Union[str, bytes, openai.File]] = None,
+                filename: Optional[str] = None,
+                file_id: Optional[str] = None,
         ) -> None:
             """
             Initializes a Block instance.
@@ -493,10 +512,15 @@ class Chat():
                 chat (Chat): The parent Chat object.
                 category (str): The type of content ('text', 'code', 'image', 'generated_image', 'download', 'upload').
                 content (str, bytes, or openai.File): The actual content of the block. This can be a string for text or code, bytes for images, or an `openai.File` object for downloadable files.
+                filename (str): The name of the file if the content is bytes or an openai.File object.
+                file_id (str): The ID of the file if the content is bytes or an openai.File object.
+
             """
             self.chat = chat
             self.category = category
             self.content = content
+            self.filename = filename
+            self.file_id = file_id
 
             if self.content is None:
                 self.content = ""
@@ -561,29 +585,33 @@ class Chat():
             elif self.category == "upload":
                 st.markdown(f":material/attach_file: `{self.content.name}`")
 
-        def to_dict(self) -> Dict[str, Any]:
+        def save(self, t) -> Dict[str, Any]:
             """Converts the block to a dictionary representation."""
             if self.category in ["text", "code", "reasoning"]:
                 content = self.content
             elif self.category in ["image", "generated_image"]:
-                content = "Bytes"
+                with open(f"{t}/{self.filename}", "wb") as f:
+                    f.write(self.content)
+                content = f"File(category='{self.category}', filename='{self.filename}', file_id='{self.file_id}')"
             elif self.category == "download":
                 cfile = self.chat._client.containers.files.retrieve(
                     file_id=self.content,
                     container_id=self.chat._container_id                
                 )
                 filename = os.path.basename(cfile.path)
-                content = f"File(filename='{filename}')"
+                content = f"File(category='download', filename='{filename}')"
             elif self.category == "upload":
-                content = f"File(filename='{self.content.name}')"
+                content = f"File(filename='upload', '{self.content.name}')"
             return {
                 "category": self.category,
                 "content": content,
             }
 
-    def create_block(self, category, content=None) -> "Block":
+    def create_block(self, category, content=None, filename=None, file_id=None) -> "Block":
         """Creates a new Block object."""
-        return self.Block(self, category, content=content)
+        return self.Block(
+            self, category, content=content, filename=filename, file_id=file_id
+        )
 
     class Section():
         """A section of the chat."""
@@ -619,7 +647,7 @@ class Chat():
             """Returns the last block in the section or None if empty."""
             return None if self.empty else self.blocks[-1]
 
-        def update(self, category, content) -> None:
+        def update(self, category, content, filename=None, file_id=None) -> None:
             """Updates the section with new content, appending or extending existing blocks."""
             if self.empty:
                 self.blocks = [self.chat.create_block(category, content)]
@@ -628,7 +656,9 @@ class Chat():
             elif category == "generated_image" and self.last_block.iscategory(category):
                 self.last_block.content = content
             else:
-                self.blocks.append(self.chat.create_block(category, content))
+                self.blocks.append(self.chat.create_block(
+                    category, content, filename=filename, file_id=file_id
+                ))
 
         def write(self) -> None:
             """Renders the section's content in the Streamlit chat interface."""
@@ -639,9 +669,9 @@ class Chat():
                     for block in self.blocks:
                         block.write()
 
-        def update_and_stream(self, category, content) -> None:
+        def update_and_stream(self, category, content, filename=None, file_id=None) -> None:
             """Updates the section and streams the update live to the UI."""
-            self.update(category, content)
+            self.update(category, content, filename=filename, file_id=file_id)
             self.stream()
 
         def stream(self) -> None:
@@ -649,14 +679,14 @@ class Chat():
             with self.delta_generator:
                 self.write()
 
-        def to_dict(self) -> Dict[str, Any]:
+        def save(self, t) -> Dict[str, Any]:
             """Converts the section to a dictionary representation."""
             if self.empty:
                 return {}
             else:
                 return {
                     "role": self.role,
-                    "blocks": [block.to_dict() for block in self.blocks],
+                    "blocks": [block.save(t) for block in self.blocks],
                 }
 
     def create_section(self, role, blocks=None) -> "Section":
