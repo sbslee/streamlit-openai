@@ -201,26 +201,25 @@ class Chat():
                 for section in data["sections"]:
                     self.add_section(section["role"], blocks=[])
                     for block in section["blocks"]:
-                        filename = None
-                        file_id = None
+                        category = block["category"]
+                        content = block["content"]
+                        filename = block["filename"]
+                        file_id = block["file_id"]
                         if block["category"] in ["text", "code", "reasoning"]:
-                            category = block["category"]
-                            content = block["content"]
                             self._input.append({
                                 "role": section["role"],
                                 "content": content
                             })
                         elif block["category"] in ["image", "generated_image"]:
-                            category = block["category"]
-                            filename = block["filename"]
-                            file_id = block["file_id"]
                             uploaded_file = f"{t}/{self.history.replace('.zip', '')}/{filename}"
                             with open(uploaded_file, "rb") as f:
                                 content = f.read()
                             self.track(uploaded_file)
                         elif block["category"] == "download":
-                            category = "text"
-                            content = "<DOWNLOAD " + block["content"] + ">"
+                            uploaded_file = f"{t}/{self.history.replace('.zip', '')}/{filename}"
+                            with open(uploaded_file, "rb") as f:
+                                content = f.read()
+                            self.track(uploaded_file)
                         elif block["category"] == "upload":
                             category = "text"
                             content = "<UPLOAD " + block["content"] + ">"
@@ -284,7 +283,16 @@ class Chat():
                                 file_id=event1.annotation["file_id"]
                             )
                     else:
-                        self.last_section.update_and_stream("download", event1.annotation["file_id"])
+                        cfile_content = self._client.containers.files.content.retrieve(
+                            file_id=event1.annotation["file_id"],
+                            container_id=self._container_id
+                        )
+                        self.last_section.update_and_stream(
+                            "download",
+                            cfile_content.read(),
+                            filename=event1.annotation["filename"],
+                            file_id=event1.annotation["file_id"]
+                        )
         if tool_calls:
             for tool in tool_calls:
                 function = [x for x in self.functions if x.name == tool][0]
@@ -545,12 +553,7 @@ class Chat():
             elif self.category in ["image", "generated_image"]:
                 content = "Bytes"
             elif self.category == "download":
-                cfile = self.chat._client.containers.files.retrieve(
-                    file_id=self.content,
-                    container_id=self.chat._container_id                
-                )
-                filename = os.path.basename(cfile.path)
-                content = f"File(filename='{filename}')"
+                content = "Bytes"
             elif self.category == "upload":
                 content = f"File(filename='{self.content.name}')"
             return f"Block(category='{self.category}', content={content}, filename='{self.filename}', file_id='{self.file_id}')"
@@ -572,20 +575,11 @@ class Chat():
             elif self.category in ["image", "generated_image"]:
                 st.image(self.content)
             elif self.category == "download":
-                cfile_content = self.chat._client.containers.files.content.retrieve(
-                    file_id=self.content,
-                    container_id=self.chat._container_id
-                )
-                cfile = self.chat._client.containers.files.retrieve(
-                    file_id=self.content,
-                    container_id=self.chat._container_id                
-                )
-                filename = os.path.basename(cfile.path)
-                _, file_extension = os.path.splitext(filename)
+                _, file_extension = os.path.splitext(self.filename)
                 st.download_button(
-                    label=filename,
-                    data=cfile_content.read(),
-                    file_name=filename,
+                    label=self.filename,
+                    data=self.content,
+                    file_name=self.filename,
                     mime=MIME_TYPES[file_extension.lstrip(".")],
                     icon=":material/download:",
                     key=self.chat._download_button_key,
@@ -603,12 +597,9 @@ class Chat():
                     f.write(self.content)
                 content = "Bytes"
             elif self.category == "download":
-                cfile = self.chat._client.containers.files.retrieve(
-                    file_id=self.content,
-                    container_id=self.chat._container_id                
-                )
-                filename = os.path.basename(cfile.path)
-                content = f"File(filename='{filename}')"
+                with open(f"{t}/{self.filename}", "wb") as f:
+                    f.write(self.content)
+                content = f"File"
             elif self.category == "upload":
                 content = f"File(filename='{self.content.name}')"
             return {
