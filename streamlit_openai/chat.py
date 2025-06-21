@@ -447,6 +447,11 @@ class Chat():
                 })
 
             if self.chat.allow_code_interpreter and self._file_path.suffix in CODE_INTERPRETER_EXTENSIONS:
+                # If an image file is uploaded for vision purposes but is also 
+                # supported by the code interpreter, it will be automatically 
+                # uploaded to the code interpreter container.
+                if self._file_path.suffix in VISION_EXTENSIONS:
+                    self._openai_file = self._vision_file
                 if self._openai_file is None:
                     with open(self._file_path, "rb") as f:
                         self._openai_file = self.chat._client.files.create(file=f, purpose="user_data")
