@@ -211,7 +211,7 @@ class Chat():
                                 block["category"], block["content"]
                             ))
                         else:
-                            uploaded_file = f"{dir_path}/{block['filename']}"
+                            uploaded_file = f"{dir_path}/{block['file_id']}-{block['filename']}"
                             with open(uploaded_file, "rb") as f:
                                 content = f.read()
                             self.track(uploaded_file)
@@ -526,9 +526,9 @@ class Chat():
             Args:
                 chat (Chat): The parent Chat object.
                 category (str): The type of content ('text', 'code', 'image', 'generated_image', 'download', 'upload').
-                content (str, bytes, or openai.File): The actual content of the block. This can be a string for text or code, bytes for images, or an `openai.File` object for downloadable files.
-                filename (str): The name of the file if the content is bytes or an openai.File object.
-                file_id (str): The ID of the file if the content is bytes or an openai.File object.
+                content (str or bytes): The content of the block.
+                filename (str): The name of the file if the content is bytes.
+                file_id (str): The ID of the file if the content is bytes.
             """
             self.chat = chat
             self.category = category
@@ -542,6 +542,7 @@ class Chat():
                 self.content = content
 
         def __repr__(self) -> None:
+            """Returns a string representation of the Block."""
             if self.category in ["text", "code", "reasoning"]:
                 content = self.content
                 if len(content) > 30:
@@ -586,7 +587,7 @@ class Chat():
             if self.category in ["text", "code", "reasoning"]:
                 content = self.content
             elif self.category in ["image", "generated_image", "download", "upload"]:
-                with open(f"{t}/{self.filename}", "wb") as f:
+                with open(f"{t}/{self.file_id}-{self.filename}", "wb") as f:
                     f.write(self.content)
                 content = "Bytes"
             return {
@@ -624,6 +625,7 @@ class Chat():
             self.delta_generator = st.empty()
             
         def __repr__(self) -> None:
+            """Returns a string representation of the Section."""
             return f"Section(role='{self.role}', blocks={self.blocks})"
 
         @property
