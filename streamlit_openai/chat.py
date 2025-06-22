@@ -253,11 +253,9 @@ class Chat():
             elif event1.type == "response.reasoning_summary_text.done":
                 self.last_section.last_block.content += "\n\n"
             elif event1.type == "response.image_generation_call.partial_image":
-                image_base64 = event1.partial_image_b64
-                image_bytes = base64.b64decode(image_base64)
                 self.last_section.update_and_stream(
                     "generated_image",
-                    image_bytes,
+                    base64.b64decode(event1.partial_image_b64),
                     filename=f"{event1.item_id}.{event1.output_format}",
                     file_id=event1.item_id
                 )
@@ -515,12 +513,12 @@ class Chat():
     class Block():
         """A block of content in the chat."""
         def __init__(
-                self,
-                chat: "Chat",
-                category: str,
-                content: Optional[Union[str, bytes, openai.File]] = None,
-                filename: Optional[str] = None,
-                file_id: Optional[str] = None,
+            self,
+            chat: "Chat",
+            category: str,
+            content: Optional[Union[str, bytes, openai.File]] = None,
+            filename: Optional[str] = None,
+            file_id: Optional[str] = None,
         ) -> None:
             """
             Initializes a Block instance.
@@ -531,7 +529,6 @@ class Chat():
                 content (str, bytes, or openai.File): The actual content of the block. This can be a string for text or code, bytes for images, or an `openai.File` object for downloadable files.
                 filename (str): The name of the file if the content is bytes or an openai.File object.
                 file_id (str): The ID of the file if the content is bytes or an openai.File object.
-
             """
             self.chat = chat
             self.category = category
@@ -550,11 +547,7 @@ class Chat():
                 if len(content) > 30:
                     content = content[:30].strip() + "..."
                 content = repr(content)
-            elif self.category in ["image", "generated_image"]:
-                content = "Bytes"
-            elif self.category == "download":
-                content = "Bytes"
-            elif self.category == "upload":
+            elif self.category in ["image", "generated_image", "download", "upload"]:
                 content = "Bytes"
             return f"Block(category='{self.category}', content={content}, filename='{self.filename}', file_id='{self.file_id}')"
 
@@ -592,15 +585,7 @@ class Chat():
             """Converts the block to a dictionary representation."""
             if self.category in ["text", "code", "reasoning"]:
                 content = self.content
-            elif self.category in ["image", "generated_image"]:
-                with open(f"{t}/{self.filename}", "wb") as f:
-                    f.write(self.content)
-                content = "Bytes"
-            elif self.category == "download":
-                with open(f"{t}/{self.filename}", "wb") as f:
-                    f.write(self.content)
-                content = "Bytes"
-            elif self.category == "upload":
+            elif self.category in ["image", "generated_image", "download", "upload"]:
                 with open(f"{t}/{self.filename}", "wb") as f:
                     f.write(self.content)
                 content = "Bytes"
@@ -620,10 +605,10 @@ class Chat():
     class Section():
         """A section of the chat."""
         def __init__(
-                self,
-                chat: "Chat",
-                role: str,
-                blocks: Optional[List["Block"]] = None,
+            self,
+            chat: "Chat",
+            role: str,
+            blocks: Optional[List["Block"]] = None,
         ) -> None:
             """
             Initializes a Section instance.
