@@ -3,6 +3,7 @@
 ## 0.1.3 (in development)
 * Chat history now supports images, downloads, and uploads.
 * Images supported by the code interpreter are no longer uploaded twice.
+* Convert `Chat.load` to a class method.
 
 ## 0.1.2 (2025-06-19)
 * Add support for OpenAI's web search capability.

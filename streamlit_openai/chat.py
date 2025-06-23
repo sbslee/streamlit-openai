@@ -66,7 +66,6 @@ class Chat():
         example_messages: Optional[List[dict]] = None,
         info_message: Optional[str] = None,
         vector_store_ids: Optional[List[str]] = None,
-        history: Optional[str] = None,
         allow_code_interpreter: Optional[bool] = True,
         allow_file_search: Optional[bool] = True,
         allow_web_search: Optional[bool] = True,
@@ -91,7 +90,6 @@ class Chat():
             example_messages (list): List of example messages for the user to choose from. Ignored if the chat history is provided.
             info_message (str): Information message to be displayed in the chat. This message is constantly displayed at the top of the chat interface.
             vector_store_ids (list): List of vector store IDs for file search. Only used if file search is enabled. Maximum of two vector stores allowed.
-            history (str): File path to the chat history ZIP file. If provided, the chat history will be loaded from this file.
             allow_code_interpreter (bool): Whether to allow code interpreter functionality (default: True).
             allow_file_search (bool): Whether to allow file search functionality (default: True).
             allow_web_search (bool): Whether to allow web search functionality (default: True).
@@ -112,7 +110,6 @@ class Chat():
         self.example_messages = example_messages
         self.info_message = info_message
         self.vector_store_ids = vector_store_ids
-        self.history = history
         self.allow_code_interpreter = allow_code_interpreter
         self.allow_file_search = allow_file_search
         self.allow_web_search = allow_web_search
@@ -180,47 +177,97 @@ class Chat():
             for uploaded_file in self.uploaded_files:
                 self.track(uploaded_file)
 
-        # If a chat history file is provided, load the chat history
-        if self.history is not None:
-            self.load(self.history)
-
     @property
     def last_section(self) -> Optional["Section"]:
         """Returns the last section of the chat."""
         return self._sections[-1] if self._sections else None
 
-    def load(self, history) -> None:
-        """Loads the chat history from a ZIP file."""
+    def save(self, file_path: str) -> None:
+        """Saves the chat history to a ZIP file."""
+        if not file_path.endswith(".zip"):
+            raise ValueError("File path must end with .zip")
+        with tempfile.TemporaryDirectory() as t:
+            data = {
+                "model": self.model,
+                "instructions": self.instructions,
+                "temperature": self.temperature,
+                "accept_file": self.accept_file,
+                "uploaded_files": self.uploaded_files,
+                "user_avatar": self.user_avatar,
+                "assistant_avatar": self.assistant_avatar,
+                "placeholder": self.placeholder,
+                "welcome_message": self.welcome_message,
+                "example_messages": self.example_messages,
+                "info_message": self.info_message,
+                "vector_store_ids": self.vector_store_ids,
+                "allow_code_interpreter": self.allow_code_interpreter,
+                "allow_file_search": self.allow_file_search,
+                "allow_web_search": self.allow_web_search,
+                "allow_image_generation": self.allow_image_generation,
+                "sections": [section.save(t) for section in self._sections],
+            }
+            with open(f"{t}/data.json", "w") as f:
+                json.dump(data, f, indent=4)
+            with zipfile.ZipFile(file_path, "w", zipfile.ZIP_DEFLATED) as f:
+                for root, dirs, files in os.walk(t):
+                    for file in files:
+                        f.write(
+                            os.path.join(root, file),
+                            arcname=os.path.join(os.path.basename(file_path.replace(".zip", "")), file)
+                        )
+
+    @classmethod
+    def load(cls, history) -> "Chat":
+        """Loads a chat history from a ZIP file."""
         if not history.endswith(".zip"):
             raise ValueError("History file must end with .zip")
         with tempfile.TemporaryDirectory() as t:
             with zipfile.ZipFile(history, "r") as f:
                 f.extractall(t)
-            dir_path = f"{t}/{self.history.replace('.zip', '')}" 
+            dir_path = f"{t}/{history.replace('.zip', '')}" 
             with open(f"{dir_path}/data.json", "r") as f:
                 data = json.load(f)
-                for section in data["sections"]:
-                    self.add_section(section["role"], blocks=[])
-                    for block in section["blocks"]:
-                        if block["category"] in ["text", "code", "reasoning"]:
-                            self._input.append({
-                                "role": section["role"],
-                                "content": block["content"]
-                            })
-                            self._sections[-1].blocks.append(self.create_block(
-                                block["category"], block["content"]
-                            ))
-                        else:
-                            uploaded_file = f"{dir_path}/{block['file_id']}-{block['filename']}"
-                            with open(uploaded_file, "rb") as f:
-                                content = f.read()
-                            self.track(uploaded_file)
-                            self._sections[-1].blocks.append(self.create_block(
-                                block["category"],
-                                content,
-                                filename=block["filename"],
-                                file_id=block["file_id"]
-                            ))
+            chat = cls(
+                model=data["model"],
+                instructions=data["instructions"],
+                temperature=data["temperature"],
+                accept_file=data["accept_file"],
+                uploaded_files=data["uploaded_files"],
+                user_avatar=data["user_avatar"],
+                assistant_avatar=data["assistant_avatar"],
+                placeholder=data["placeholder"],
+                welcome_message=data["welcome_message"],
+                example_messages=data["example_messages"],
+                info_message=data["info_message"],
+                vector_store_ids=data["vector_store_ids"],
+                allow_code_interpreter=data["allow_code_interpreter"],
+                allow_file_search=data["allow_file_search"],
+                allow_web_search=data["allow_web_search"],
+                allow_image_generation=data["allow_image_generation"],
+            )
+            for section in data["sections"]:
+                chat.add_section(section["role"], blocks=[])
+                for block in section["blocks"]:
+                    if block["category"] in ["text", "code", "reasoning"]:
+                        chat._input.append({
+                            "role": section["role"],
+                            "content": block["content"]
+                        })
+                        chat._sections[-1].blocks.append(chat.create_block(
+                            block["category"], block["content"]
+                        ))
+                    else:
+                        uploaded_file = f"{dir_path}/{block['file_id']}-{block['filename']}"
+                        with open(uploaded_file, "rb") as f:
+                            content = f.read()
+                        chat.track(uploaded_file)
+                        chat._sections[-1].blocks.append(chat.create_block(
+                            block["category"],
+                            content,
+                            filename=block["filename"],
+                            file_id=block["file_id"]
+                        ))
+        return chat
 
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
@@ -375,24 +422,6 @@ class Chat():
                 if uploaded_file.file_id in [x.uploaded_file.file_id for x in self._tracked_files if isinstance(x, UploadedFile)]:
                     continue
                 self.track(uploaded_file)
-
-    def save(self, file_path: str) -> None:
-        """Saves the chat history to a ZIP file."""
-        if not file_path.endswith(".zip"):
-            raise ValueError("File path must end with .zip")
-        with tempfile.TemporaryDirectory() as t:
-            data = {
-                "sections": [section.save(t) for section in self._sections],
-            }
-            with open(f"{t}/data.json", "w") as f:
-                json.dump(data, f, indent=4)
-            with zipfile.ZipFile(file_path, "w", zipfile.ZIP_DEFLATED) as f:
-                for root, dirs, files in os.walk(t):
-                    for file in files:
-                        f.write(
-                            os.path.join(root, file),
-                            arcname=os.path.join(os.path.basename(file_path.replace(".zip", "")), file)
-                        )
 
     class TrackedFile():
         """A file that is tracked by the chat."""
