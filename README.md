@@ -542,9 +542,7 @@ st.session_state.chat.run()
 ## Chat History
 
 You can save chat history to let users resume conversations across sessions. 
-Use the `Chat` class’s `save` method to save history as a ZIP file. Currently, 
-only text is saved -- other file types (e.g., images) are not supported. 
-Example:
+Use the `Chat` class’s `save` method to save history as a ZIP file. Example:
 
 ```python
 import streamlit as st
