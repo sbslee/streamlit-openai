@@ -86,8 +86,8 @@ class Chat():
             user_avatar (str): An emoji, image URL, or file path that represents the user.
             assistant_avatar (str): An emoji, image URL, or file path that represents the assistant.
             placeholder (str): Placeholder text for the chat input box (default: "Your message").
-            welcome_message (str): Welcome message from the assistant. Ignored if the chat history is provided.
-            example_messages (list): List of example messages for the user to choose from. Ignored if the chat history is provided.
+            welcome_message (str): Welcome message from the assistant.
+            example_messages (list): List of example messages for the user to choose from.
             info_message (str): Information message to be displayed in the chat. This message is constantly displayed at the top of the chat interface.
             vector_store_ids (list): List of vector store IDs for file search. Only used if file search is enabled. Maximum of two vector stores allowed.
             allow_code_interpreter (bool): Whether to allow code interpreter functionality (default: True).
@@ -165,7 +165,7 @@ class Chat():
             })
 
         # If a welcome message is provided, add it to the chat history
-        if self.welcome_message is not None and self.history is None:
+        if self.welcome_message is not None:
             self._input.append({"role": "assistant", "content": self.welcome_message})
             self.add_section(
                 "assistant",
@@ -236,7 +236,6 @@ class Chat():
                 user_avatar=data["user_avatar"],
                 assistant_avatar=data["assistant_avatar"],
                 placeholder=data["placeholder"],
-                welcome_message=data["welcome_message"],
                 example_messages=data["example_messages"],
                 info_message=data["info_message"],
                 vector_store_ids=data["vector_store_ids"],
