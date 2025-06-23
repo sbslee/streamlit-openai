@@ -133,7 +133,7 @@ class Chat():
             self._tools.append({"type": "image_generation", "partial_images": 3})
 
         if self.allow_code_interpreter:
-            container = self._client.containers.create(name="container")
+            container = self._client.containers.create(name="streamlit-openai")
             self._container_id = container.id
             self._tools.append({"type": "code_interpreter", "container": self._container_id})
 
