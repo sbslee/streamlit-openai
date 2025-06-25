@@ -1,5 +1,7 @@
 # CHANGELOG
 
+## 0.1.4 (in development)
+
 ## 0.1.3 (2025-06-25)
 * Chat history now supports images, downloads, and uploads.
 * Images supported by the code interpreter are no longer uploaded twice.
