@@ -66,7 +66,6 @@ class Chat():
         example_messages: Optional[List[dict]] = None,
         info_message: Optional[str] = None,
         vector_store_ids: Optional[List[str]] = None,
-        history: Optional[str] = None,
         allow_code_interpreter: Optional[bool] = True,
         allow_file_search: Optional[bool] = True,
         allow_web_search: Optional[bool] = True,
@@ -87,11 +86,10 @@ class Chat():
             user_avatar (str): An emoji, image URL, or file path that represents the user.
             assistant_avatar (str): An emoji, image URL, or file path that represents the assistant.
             placeholder (str): Placeholder text for the chat input box (default: "Your message").
-            welcome_message (str): Welcome message from the assistant. Ignored if the chat history is provided.
-            example_messages (list): List of example messages for the user to choose from. Ignored if the chat history is provided.
+            welcome_message (str): Welcome message from the assistant.
+            example_messages (list): List of example messages for the user to choose from.
             info_message (str): Information message to be displayed in the chat. This message is constantly displayed at the top of the chat interface.
             vector_store_ids (list): List of vector store IDs for file search. Only used if file search is enabled. Maximum of two vector stores allowed.
-            history (str): File path to the chat history ZIP file. If provided, the chat history will be loaded from this file.
             allow_code_interpreter (bool): Whether to allow code interpreter functionality (default: True).
             allow_file_search (bool): Whether to allow file search functionality (default: True).
             allow_web_search (bool): Whether to allow web search functionality (default: True).
@@ -112,7 +110,6 @@ class Chat():
         self.example_messages = example_messages
         self.info_message = info_message
         self.vector_store_ids = vector_store_ids
-        self.history = history
         self.allow_code_interpreter = allow_code_interpreter
         self.allow_file_search = allow_file_search
         self.allow_web_search = allow_web_search
@@ -136,7 +133,7 @@ class Chat():
             self._tools.append({"type": "image_generation", "partial_images": 3})
 
         if self.allow_code_interpreter:
-            container = self._client.containers.create(name="container")
+            container = self._client.containers.create(name="streamlit-openai")
             self._container_id = container.id
             self._tools.append({"type": "code_interpreter", "container": self._container_id})
 
@@ -168,7 +165,7 @@ class Chat():
             })
 
         # If a welcome message is provided, add it to the chat history
-        if self.welcome_message is not None and self.history is None:
+        if self.welcome_message is not None:
             self._input.append({"role": "assistant", "content": self.welcome_message})
             self.add_section(
                 "assistant",
@@ -180,47 +177,115 @@ class Chat():
             for uploaded_file in self.uploaded_files:
                 self.track(uploaded_file)
 
-        # If a chat history file is provided, load the chat history
-        if self.history is not None:
-            if not self.history.endswith(".zip"):
-                raise ValueError("History file must end with .zip")
-            with tempfile.TemporaryDirectory() as t:
-                with zipfile.ZipFile(self.history, "r") as f:
-                    f.extractall(t)
-                with open(f"{t}/{self.history.replace('.zip', '')}/data.json", "r") as f:
-                    data = json.load(f)
-                    for section in data["sections"]:
-                        self.add_section(section["role"], blocks=[])
-                        for block in section["blocks"]:
-                            if block["category"] in ["text", "code", "reasoning"]:
-                                category = block["category"]
-                                content = block["content"]
-                            elif block["category"] in ["image", "generated_image"]:
-                                category = "text"
-                                content = "<IMAGE BYTES>"
-                            elif block["category"] == "download":
-                                category = "text"
-                                content = "<DOWNLOAD " + block["content"] + ">"
-                            elif block["category"] == "upload":
-                                category = "text"
-                                content = "<UPLOAD " + block["content"] + ">"
-                            self._sections[-1].blocks.append(
-                                self.create_block(category, content)
-                            )
-                            self._input.append({
-                                "role": section["role"],
-                                "content": content
-                            })
-
     @property
     def last_section(self) -> Optional["Section"]:
         """Returns the last section of the chat."""
         return self._sections[-1] if self._sections else None
 
+    def save(self, file_path: str) -> None:
+        """Saves the chat history to a ZIP file."""
+        if not file_path.endswith(".zip"):
+            raise ValueError("File path must end with .zip")
+        with tempfile.TemporaryDirectory() as t:
+            data = {
+                "model": self.model,
+                "instructions": self.instructions,
+                "temperature": self.temperature,
+                "accept_file": self.accept_file,
+                "uploaded_files": self.uploaded_files,
+                "user_avatar": self.user_avatar,
+                "assistant_avatar": self.assistant_avatar,
+                "placeholder": self.placeholder,
+                "welcome_message": self.welcome_message,
+                "example_messages": self.example_messages,
+                "info_message": self.info_message,
+                "vector_store_ids": self.vector_store_ids,
+                "allow_code_interpreter": self.allow_code_interpreter,
+                "allow_file_search": self.allow_file_search,
+                "allow_web_search": self.allow_web_search,
+                "allow_image_generation": self.allow_image_generation,
+                "sections": [section.save(t) for section in self._sections],
+            }
+            with open(f"{t}/data.json", "w") as f:
+                json.dump(data, f, indent=4)
+            with zipfile.ZipFile(file_path, "w", zipfile.ZIP_DEFLATED) as f:
+                for root, dirs, files in os.walk(t):
+                    for file in files:
+                        f.write(
+                            os.path.join(root, file),
+                            arcname=os.path.join(os.path.basename(file_path.replace(".zip", "")), file)
+                        )
+
+    @classmethod
+    def load(cls, history) -> "Chat":
+        """Loads a chat history from a ZIP file."""
+        if not history.endswith(".zip"):
+            raise ValueError("History file must end with .zip")
+        with tempfile.TemporaryDirectory() as t:
+            with zipfile.ZipFile(history, "r") as f:
+                f.extractall(t)
+            dir_path = f"{t}/{history.replace('.zip', '')}" 
+            with open(f"{dir_path}/data.json", "r") as f:
+                data = json.load(f)
+            chat = cls(
+                model=data["model"],
+                instructions=data["instructions"],
+                temperature=data["temperature"],
+                accept_file=data["accept_file"],
+                uploaded_files=data["uploaded_files"],
+                user_avatar=data["user_avatar"],
+                assistant_avatar=data["assistant_avatar"],
+                placeholder=data["placeholder"],
+                example_messages=data["example_messages"],
+                info_message=data["info_message"],
+                vector_store_ids=data["vector_store_ids"],
+                allow_code_interpreter=data["allow_code_interpreter"],
+                allow_file_search=data["allow_file_search"],
+                allow_web_search=data["allow_web_search"],
+                allow_image_generation=data["allow_image_generation"],
+            )
+            for section in data["sections"]:
+                chat.add_section(section["role"], blocks=[])
+                for block in section["blocks"]:
+                    if block["category"] in ["text", "code", "reasoning"]:
+                        chat._input.append({
+                            "role": section["role"],
+                            "content": block["content"]
+                        })
+                        chat._sections[-1].blocks.append(chat.create_block(
+                            block["category"], block["content"]
+                        ))
+                    else:
+                        uploaded_file = f"{dir_path}/{block['file_id']}-{block['filename']}"
+                        with open(uploaded_file, "rb") as f:
+                            content = f.read()
+                        chat.track(uploaded_file)
+                        chat._sections[-1].blocks.append(chat.create_block(
+                            block["category"],
+                            content,
+                            filename=block["filename"],
+                            file_id=block["file_id"]
+                        ))
+        return chat
+
     def respond(self, prompt) -> None:
         """Sends the user prompt to the assistant and streams the response."""
         self._input.append({"role": "user", "content": prompt})
         self.add_section("assistant")
+        if self.allow_code_interpreter:
+            result = self._client.containers.retrieve(container_id=self._container_id)
+            if result.status == "expired":
+                container = self._client.containers.create(name="streamlit-openai")
+                self._container_id = container.id
+                for tracked_file in self._tracked_files:
+                    if tracked_file._is_container_file:
+                        self._client.containers.files.create(
+                            container_id=self._container_id,
+                            file_id=tracked_file._openai_file.id,
+                        )
+            for tool in self._tools:
+                if tool["type"] == "code_interpreter":
+                    tool["container"] = self._container_id
         events1 = self._client.responses.create(
             model=self.model,
             input=self._input,
@@ -248,9 +313,12 @@ class Chat():
             elif event1.type == "response.reasoning_summary_text.done":
                 self.last_section.last_block.content += "\n\n"
             elif event1.type == "response.image_generation_call.partial_image":
-                image_base64 = event1.partial_image_b64
-                image_bytes = base64.b64decode(image_base64)
-                self.last_section.update_and_stream("generated_image", image_bytes)
+                self.last_section.update_and_stream(
+                    "generated_image",
+                    base64.b64decode(event1.partial_image_b64),
+                    filename=f"{event1.item_id}.{event1.output_format}",
+                    file_id=event1.item_id
+                )
             elif event1.type == "response.output_text.annotation.added":
                 if event1.annotation["type"] == "file_citation":
                     pass
@@ -261,9 +329,23 @@ class Chat():
                                 file_id=event1.annotation["file_id"],
                                 container_id=self._container_id
                             )
-                            self.last_section.update_and_stream("image", image_content.read())
+                            self.last_section.update_and_stream(
+                                "image",
+                                image_content.read(),
+                                filename=event1.annotation["filename"],
+                                file_id=event1.annotation["file_id"]
+                            )
                     else:
-                        self.last_section.update_and_stream("download", event1.annotation["file_id"])
+                        cfile_content = self._client.containers.files.content.retrieve(
+                            file_id=event1.annotation["file_id"],
+                            container_id=self._container_id
+                        )
+                        self.last_section.update_and_stream(
+                            "download",
+                            cfile_content.read(),
+                            filename=event1.annotation["filename"],
+                            file_id=event1.annotation["file_id"]
+                        )
         if tool_calls:
             for tool in tool_calls:
                 function = [x for x in self.functions if x.name == tool][0]
@@ -313,7 +395,12 @@ class Chat():
                 if attachments:
                     for attachment in attachments:
                         st.markdown(f":material/attach_file: `{attachment.name}`")
-                        section.update("upload", attachment)
+                        section.update(
+                            "upload",
+                            attachment.getvalue(),
+                            filename=attachment.name,
+                            file_id=attachment.file_id
+                        )
                 st.markdown(prompt)
                 section.update("text", prompt)
             self._sections.append(section)
@@ -349,24 +436,6 @@ class Chat():
                     continue
                 self.track(uploaded_file)
 
-    def save(self, file_path: str) -> None:
-        """Saves the chat history to a ZIP file."""
-        if not file_path.endswith(".zip"):
-            raise ValueError("File path must end with .zip")
-        data = {
-            "sections": [section.to_dict() for section in self._sections],
-        }
-        with tempfile.TemporaryDirectory() as t:
-            with open(f"{t}/data.json", "w") as f:
-                json.dump(data, f, indent=4)
-            with zipfile.ZipFile(file_path, "w", zipfile.ZIP_DEFLATED) as f:
-                for root, dirs, files in os.walk(t):
-                    for file in files:
-                        f.write(
-                            os.path.join(root, file),
-                            arcname=os.path.join(os.path.basename(file_path.replace(".zip", "")), file)
-                        )
-
     class TrackedFile():
         """A file that is tracked by the chat."""
         def __init__(
@@ -387,6 +456,7 @@ class Chat():
             self._openai_file = None
             self._vision_file = None
             self._skip_file_search = False
+            self._is_container_file = False
 
             if isinstance(self.uploaded_file, str):
                 self._file_path = Path(self.uploaded_file).resolve()
@@ -422,7 +492,19 @@ class Chat():
                 except Exception as e:
                     pass
 
+            if self._file_path.suffix in VISION_EXTENSIONS:
+                self._vision_file = self.chat._client.files.create(file=self._file_path, purpose="vision")
+                self.chat._input.append({
+                    "role": "user",
+                    "content": [{"type": "input_image", "file_id": self._vision_file.id}]
+                })
+
             if self.chat.allow_code_interpreter and self._file_path.suffix in CODE_INTERPRETER_EXTENSIONS:
+                # If an image file is uploaded for vision purposes but is also 
+                # supported by the code interpreter, it will be automatically 
+                # uploaded to the code interpreter container.
+                if self._file_path.suffix in VISION_EXTENSIONS:
+                    self._openai_file = self._vision_file
                 if self._openai_file is None:
                     with open(self._file_path, "rb") as f:
                         self._openai_file = self.chat._client.files.create(file=f, purpose="user_data")
@@ -430,6 +512,7 @@ class Chat():
                     container_id=self.chat._container_id,
                     file_id=self._openai_file.id,
                 )
+                self._is_container_file = True
 
             if self.chat.allow_file_search and not self._skip_file_search and self._file_path.suffix in FILE_SEARCH_EXTENSIONS:
                 if self._openai_file is None:
@@ -462,13 +545,6 @@ class Chat():
                         "vector_store_ids": [self.chat._dynamic_vector_store.id]
                     })
 
-            if self._file_path.suffix in VISION_EXTENSIONS:
-                self._vision_file = self.chat._client.files.create(file=self._file_path, purpose="vision")
-                self.chat._input.append({
-                    "role": "user",
-                    "content": [{"type": "input_image", "file_id": self._vision_file.id}]
-                })
-
         def __repr__(self) -> None:
             return f"TrackedFile(uploaded_file='{self._file_path.name}')"
         
@@ -481,10 +557,12 @@ class Chat():
     class Block():
         """A block of content in the chat."""
         def __init__(
-                self,
-                chat: "Chat",
-                category: str,
-                content: Optional[Union[str, bytes, openai.File]] = None,
+            self,
+            chat: "Chat",
+            category: str,
+            content: Optional[Union[str, bytes, openai.File]] = None,
+            filename: Optional[str] = None,
+            file_id: Optional[str] = None,
         ) -> None:
             """
             Initializes a Block instance.
@@ -492,11 +570,15 @@ class Chat():
             Args:
                 chat (Chat): The parent Chat object.
                 category (str): The type of content ('text', 'code', 'image', 'generated_image', 'download', 'upload').
-                content (str, bytes, or openai.File): The actual content of the block. This can be a string for text or code, bytes for images, or an `openai.File` object for downloadable files.
+                content (str or bytes): The content of the block.
+                filename (str): The name of the file if the content is bytes.
+                file_id (str): The ID of the file if the content is bytes.
             """
             self.chat = chat
             self.category = category
             self.content = content
+            self.filename = filename
+            self.file_id = file_id
 
             if self.content is None:
                 self.content = ""
@@ -504,23 +586,15 @@ class Chat():
                 self.content = content
 
         def __repr__(self) -> None:
+            """Returns a string representation of the Block."""
             if self.category in ["text", "code", "reasoning"]:
                 content = self.content
                 if len(content) > 30:
                     content = content[:30].strip() + "..."
                 content = repr(content)
-            elif self.category in ["image", "generated_image"]:
+            elif self.category in ["image", "generated_image", "download", "upload"]:
                 content = "Bytes"
-            elif self.category == "download":
-                cfile = self.chat._client.containers.files.retrieve(
-                    file_id=self.content,
-                    container_id=self.chat._container_id                
-                )
-                filename = os.path.basename(cfile.path)
-                content = f"File(filename='{filename}')"
-            elif self.category == "upload":
-                content = f"File(filename='{self.content.name}')"
-            return f"Block(category='{self.category}', content={content})"
+            return f"Block(category='{self.category}', content={content}, filename='{self.filename}', file_id='{self.file_id}')"
 
         def iscategory(self, category) -> bool:
             """Checks if the block belongs to the specified category."""
@@ -539,59 +613,47 @@ class Chat():
             elif self.category in ["image", "generated_image"]:
                 st.image(self.content)
             elif self.category == "download":
-                cfile_content = self.chat._client.containers.files.content.retrieve(
-                    file_id=self.content,
-                    container_id=self.chat._container_id
-                )
-                cfile = self.chat._client.containers.files.retrieve(
-                    file_id=self.content,
-                    container_id=self.chat._container_id                
-                )
-                filename = os.path.basename(cfile.path)
-                _, file_extension = os.path.splitext(filename)
+                _, file_extension = os.path.splitext(self.filename)
                 st.download_button(
-                    label=filename,
-                    data=cfile_content.read(),
-                    file_name=filename,
+                    label=self.filename,
+                    data=self.content,
+                    file_name=self.filename,
                     mime=MIME_TYPES[file_extension.lstrip(".")],
                     icon=":material/download:",
                     key=self.chat._download_button_key,
                 )
                 self.chat._download_button_key += 1
             elif self.category == "upload":
-                st.markdown(f":material/attach_file: `{self.content.name}`")
+                st.markdown(f":material/attach_file: `{self.filename}`")
 
-        def to_dict(self) -> Dict[str, Any]:
+        def save(self, t) -> Dict[str, Any]:
             """Converts the block to a dictionary representation."""
             if self.category in ["text", "code", "reasoning"]:
                 content = self.content
-            elif self.category in ["image", "generated_image"]:
+            elif self.category in ["image", "generated_image", "download", "upload"]:
+                with open(f"{t}/{self.file_id}-{self.filename}", "wb") as f:
+                    f.write(self.content)
                 content = "Bytes"
-            elif self.category == "download":
-                cfile = self.chat._client.containers.files.retrieve(
-                    file_id=self.content,
-                    container_id=self.chat._container_id                
-                )
-                filename = os.path.basename(cfile.path)
-                content = f"File(filename='{filename}')"
-            elif self.category == "upload":
-                content = f"File(filename='{self.content.name}')"
             return {
                 "category": self.category,
                 "content": content,
+                "filename": self.filename,
+                "file_id": self.file_id,
             }
 
-    def create_block(self, category, content=None) -> "Block":
+    def create_block(self, category, content=None, filename=None, file_id=None) -> "Block":
         """Creates a new Block object."""
-        return self.Block(self, category, content=content)
+        return self.Block(
+            self, category, content=content, filename=filename, file_id=file_id
+        )
 
     class Section():
         """A section of the chat."""
         def __init__(
-                self,
-                chat: "Chat",
-                role: str,
-                blocks: Optional[List["Block"]] = None,
+            self,
+            chat: "Chat",
+            role: str,
+            blocks: Optional[List["Block"]] = None,
         ) -> None:
             """
             Initializes a Section instance.
@@ -607,6 +669,7 @@ class Chat():
             self.delta_generator = st.empty()
             
         def __repr__(self) -> None:
+            """Returns a string representation of the Section."""
             return f"Section(role='{self.role}', blocks={self.blocks})"
 
         @property
@@ -619,16 +682,20 @@ class Chat():
             """Returns the last block in the section or None if empty."""
             return None if self.empty else self.blocks[-1]
 
-        def update(self, category, content) -> None:
+        def update(self, category, content, filename=None, file_id=None) -> None:
             """Updates the section with new content, appending or extending existing blocks."""
             if self.empty:
-                self.blocks = [self.chat.create_block(category, content)]
+                self.blocks = [self.chat.create_block(
+                    category, content, filename=filename, file_id=file_id
+                )]
             elif category in ["text", "code", "reasoning"] and self.last_block.iscategory(category):
                 self.last_block.content += content
             elif category == "generated_image" and self.last_block.iscategory(category):
                 self.last_block.content = content
             else:
-                self.blocks.append(self.chat.create_block(category, content))
+                self.blocks.append(self.chat.create_block(
+                    category, content, filename=filename, file_id=file_id
+                ))
 
         def write(self) -> None:
             """Renders the section's content in the Streamlit chat interface."""
@@ -639,9 +706,9 @@ class Chat():
                     for block in self.blocks:
                         block.write()
 
-        def update_and_stream(self, category, content) -> None:
+        def update_and_stream(self, category, content, filename=None, file_id=None) -> None:
             """Updates the section and streams the update live to the UI."""
-            self.update(category, content)
+            self.update(category, content, filename=filename, file_id=file_id)
             self.stream()
 
         def stream(self) -> None:
@@ -649,14 +716,14 @@ class Chat():
             with self.delta_generator:
                 self.write()
 
-        def to_dict(self) -> Dict[str, Any]:
+        def save(self, t) -> Dict[str, Any]:
             """Converts the section to a dictionary representation."""
             if self.empty:
                 return {}
             else:
                 return {
                     "role": self.role,
-                    "blocks": [block.to_dict() for block in self.blocks],
+                    "blocks": [block.save(t) for block in self.blocks],
                 }
 
     def create_section(self, role, blocks=None) -> "Section":
