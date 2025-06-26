@@ -176,7 +176,8 @@ class Chat():
         # If files are uploaded statically, create tracked files for them
         if self.uploaded_files is not None:
             for uploaded_file in self.uploaded_files:
-                self.track(uploaded_file)
+                shutil.copy(uploaded_file, self._temp_dir.name)
+                self.track(os.path.join(self._temp_dir.name, os.path.basename(uploaded_file)))
                 self._static_files.append(self._tracked_files[-1])
 
     @property
