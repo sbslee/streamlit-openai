@@ -1,6 +1,6 @@
 import streamlit as st
 import openai
-import os, json, re, tempfile, zipfile, time, base64
+import os, json, re, tempfile, zipfile, time, base64, shutil
 from pathlib import Path
 from typing import Optional, List, Union, Literal, Dict, Any
 from .utils import CustomFunction, RemoteMCP
@@ -122,6 +122,7 @@ class Chat():
         self._previous_response_id = None
         self._container_id = None
         self._sections = []
+        self._static_files = []
         self._tracked_files = []
         self._download_button_key = 0
         self._dynamic_vector_store = None
@@ -176,6 +177,7 @@ class Chat():
         if self.uploaded_files is not None:
             for uploaded_file in self.uploaded_files:
                 self.track(uploaded_file)
+                self._static_files.append(self._tracked_files[-1])
 
     @property
     def last_section(self) -> Optional["Section"]:
@@ -187,6 +189,8 @@ class Chat():
         if not file_path.endswith(".zip"):
             raise ValueError("File path must end with .zip")
         with tempfile.TemporaryDirectory() as t:
+            for static_file in self._static_files:
+                shutil.copy(static_file._file_path, t)
             data = {
                 "model": self.model,
                 "instructions": self.instructions,
@@ -232,7 +236,7 @@ class Chat():
                 instructions=data["instructions"],
                 temperature=data["temperature"],
                 accept_file=data["accept_file"],
-                uploaded_files=data["uploaded_files"],
+                uploaded_files=[f"{dir_path}/{os.path.basename(x)}" for x in data["uploaded_files"]],
                 user_avatar=data["user_avatar"],
                 assistant_avatar=data["assistant_avatar"],
                 placeholder=data["placeholder"],
