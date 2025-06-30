@@ -215,6 +215,7 @@ class Chat():
         if data:
             result = self._client.chat.completions.create(
                 model="gpt-4o",
+                temperature=0.001,
                 messages=[
                     {"role": "developer", "content": SUMMARY_INSTRUCTIONS},
                     {"role": "user", "content": json.dumps(data, indent=4)}

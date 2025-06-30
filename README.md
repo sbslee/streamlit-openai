@@ -38,6 +38,7 @@ Here’s a quick overview of the package’s key features:
   - [Code Interpreter](#code-interpreter)
   - [Chat History](#chat-history)
   - [Chat Summary](#chat-summary)
+  - [Token Usage](#token-usage)
   - [Storage Management](#storage-management)
 - [Customization](#customization)
   - [Model Selection](#model-selection)
@@ -578,9 +579,17 @@ The `Chat` class automatically generates a summary of the chat history,
 accessible via the `Chat.summary` property. This summary is created using 
 OpenAI's Chat Completions API and provides a concise overview of the 
 conversation. Note that when a new chat is started, the default summary is 
-"New Chat." When there is enough context in the chat history, the summary 
+`"New Chat"`. When there is enough context in the chat history, the summary 
 will be automatically generated. Once the summary is generated, it will not 
 change.
+
+## Toeken Usage
+
+The `Chat` class offers the `Chat.input_tokens` and `Chat.output_tokens` 
+properties to monitor token usage during a chat session. These properties 
+return the number of input and output tokens used, respectively. This feature 
+is particularly useful for tracking token consumption and managing costs when 
+utilizing OpenAI's API.
 
 ## Storage Management
 
