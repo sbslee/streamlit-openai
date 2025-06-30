@@ -47,6 +47,12 @@ MIME_TYPES = {
     "gz"  : "application/gzip",
 }
 
+SUMMARY_INSTRUCTIONS = """
+- Your task is to provide a very concise summary (four words or fewer in English, or the equivalent in other languages) of the given conversation.
+- Do not include periods at the end of the summary.
+- Use title case for the summary.
+"""
+
 class Chat():
     """A Streamlit-based chat interface powered by OpenAI's Responses API."""
     def __init__(
@@ -114,6 +120,7 @@ class Chat():
         self.allow_file_search = allow_file_search
         self.allow_web_search = allow_web_search
         self.allow_image_generation = allow_image_generation
+        self.summary = "New Chat"
         self._client = openai.OpenAI(api_key=self.api_key)
         self._temp_dir = tempfile.TemporaryDirectory()
         self._selected_example = None
@@ -184,6 +191,33 @@ class Chat():
     def last_section(self) -> Optional["Section"]:
         """Returns the last section of the chat."""
         return self._sections[-1] if self._sections else None
+
+    def summarize(self) -> None:
+        """Update the chat summary."""
+        data = []
+        for section in self._sections:
+            s = {"role": section.role, "blocks": []}
+            for block in section.blocks:
+                if block.category in ["text", "code", "reasoning"]:
+                    content = block.content
+                else:
+                    content = "Bytes"
+                s["blocks"].append({
+                    "category": block.category,
+                    "content": content,
+                    "filename": block.filename,
+                    "file_id": block.file_id
+                })
+            data.append(s)
+        if data:
+            result = self._client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "developer", "content": SUMMARY_INSTRUCTIONS},
+                    {"role": "user", "content": json.dumps(data, indent=4)}
+                ]
+            )
+            self.summary = result.choices[0].message.content
 
     def save(self, file_path: str) -> None:
         """Saves the chat history to a ZIP file."""
@@ -430,6 +464,7 @@ class Chat():
                         blocks=[self.create_block("text", self._selected_example)]
                     )
                     self.respond(self._selected_example)
+        self.summarize()
 
     def handle_files(self, uploaded_files) -> None:
         """Handles uploaded files."""

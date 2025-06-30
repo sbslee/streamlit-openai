@@ -37,6 +37,7 @@ Here’s a quick overview of the package’s key features:
   - [Web Search](#web-search)
   - [Code Interpreter](#code-interpreter)
   - [Chat History](#chat-history)
+  - [Chat Summary](#chat-summary)
   - [Storage Management](#storage-management)
 - [Customization](#customization)
   - [Model Selection](#model-selection)
@@ -570,6 +571,13 @@ if "chat" not in st.session_state:
 
 st.session_state.chat.run()
 ```
+
+## Chat Summary
+
+The `Chat` class automatically generates a summary of the chat history,
+which can be accessed via the `Chat.summary` property. This summary is
+created using OpenAI's Chat Completions API and provides a concise
+overview of the conversation.
 
 ## Storage Management
 

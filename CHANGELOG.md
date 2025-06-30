@@ -2,6 +2,7 @@
 
 ## 0.1.4 (in development)
 * Chat history now supports statistically uploaded files.
+* The chat summary is now automatically generated as `Chat.summary`.
 
 ## 0.1.3 (2025-06-25)
 * Chat history now supports images, downloads, and uploads.
