@@ -197,7 +197,7 @@ class Chat():
 
     def summarize(self) -> None:
         """Update the chat summary."""
-        data = []
+        sections = []
         for section in self._sections:
             s = {"role": section.role, "blocks": []}
             for block in section.blocks:
@@ -211,14 +211,14 @@ class Chat():
                     "filename": block.filename,
                     "file_id": block.file_id
                 })
-            data.append(s)
-        if data:
+            sections.append(s)
+        if sections:
             result = self._client.chat.completions.create(
                 model="gpt-4o",
                 temperature=0.001,
                 messages=[
                     {"role": "developer", "content": SUMMARY_INSTRUCTIONS},
-                    {"role": "user", "content": json.dumps(data, indent=4)}
+                    {"role": "user", "content": json.dumps(sections, indent=4)}
                 ]
             )
             self.summary = result.choices[0].message.content
@@ -228,6 +228,23 @@ class Chat():
         if not file_path.endswith(".zip"):
             raise ValueError("File path must end with .zip")
         with tempfile.TemporaryDirectory() as t:
+            sections = []
+            for section in self._sections:
+                s = {"role": section.role, "blocks": []}
+                for block in section.blocks:
+                    if block.category in ["text", "code", "reasoning"]:
+                        content = block.content
+                    else:
+                        with open(f"{t}/{block.file_id}-{block.filename}", "wb") as f:
+                            f.write(block.content)
+                        content = "Bytes"
+                    s["blocks"].append({
+                        "category": block.category,
+                        "content": content,
+                        "filename": block.filename,
+                        "file_id": block.file_id
+                    })
+                sections.append(s)
             for static_file in self._static_files:
                 shutil.copy(static_file._file_path, t)
             data = {
@@ -247,7 +264,7 @@ class Chat():
                 "allow_file_search": self.allow_file_search,
                 "allow_web_search": self.allow_web_search,
                 "allow_image_generation": self.allow_image_generation,
-                "sections": [section.save(t) for section in self._sections],
+                "sections": sections,
             }
             with open(f"{t}/data.json", "w") as f:
                 json.dump(data, f, indent=4)
@@ -275,7 +292,7 @@ class Chat():
                 instructions=data["instructions"],
                 temperature=data["temperature"],
                 accept_file=data["accept_file"],
-                uploaded_files=[f"{dir_path}/{os.path.basename(x)}" for x in data["uploaded_files"]],
+                uploaded_files=None if data["uploaded_files"] is None else [f"{dir_path}/{os.path.basename(x)}" for x in data["uploaded_files"]],
                 user_avatar=data["user_avatar"],
                 assistant_avatar=data["assistant_avatar"],
                 placeholder=data["placeholder"],
@@ -673,21 +690,6 @@ class Chat():
             elif self.category == "upload":
                 st.markdown(f":material/attach_file: `{self.filename}`")
 
-        def save(self, t) -> Dict[str, Any]:
-            """Converts the block to a dictionary representation."""
-            if self.category in ["text", "code", "reasoning"]:
-                content = self.content
-            elif self.category in ["image", "generated_image", "download", "upload"]:
-                with open(f"{t}/{self.file_id}-{self.filename}", "wb") as f:
-                    f.write(self.content)
-                content = "Bytes"
-            return {
-                "category": self.category,
-                "content": content,
-                "filename": self.filename,
-                "file_id": self.file_id,
-            }
-
     def create_block(self, category, content=None, filename=None, file_id=None) -> "Block":
         """Creates a new Block object."""
         return self.Block(
@@ -762,16 +764,6 @@ class Chat():
             """Renders the section content using Streamlit's delta generator."""
             with self.delta_generator:
                 self.write()
-
-        def save(self, t) -> Dict[str, Any]:
-            """Converts the section to a dictionary representation."""
-            if self.empty:
-                return {}
-            else:
-                return {
-                    "role": self.role,
-                    "blocks": [block.save(t) for block in self.blocks],
-                }
 
     def create_section(self, role, blocks=None) -> "Section":
         """Creates a new Section object."""
