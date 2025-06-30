@@ -51,6 +51,7 @@ SUMMARY_INSTRUCTIONS = """
 - Your task is to provide a very concise summary (four words or fewer in English, or the equivalent in other languages) of the given conversation.
 - Do not include periods at the end of the summary.
 - Use title case for the summary.
+- If the conversation history does not provide enough information to summarize, return "New Chat".
 """
 
 class Chat():
@@ -464,7 +465,8 @@ class Chat():
                         blocks=[self.create_block("text", self._selected_example)]
                     )
                     self.respond(self._selected_example)
-        self.summarize()
+        if self.summary == "New Chat":
+            self.summarize()
 
     def handle_files(self, uploaded_files) -> None:
         """Handles uploaded files."""

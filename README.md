@@ -574,10 +574,13 @@ st.session_state.chat.run()
 
 ## Chat Summary
 
-The `Chat` class automatically generates a summary of the chat history,
-which can be accessed via the `Chat.summary` property. This summary is
-created using OpenAI's Chat Completions API and provides a concise
-overview of the conversation.
+The `Chat` class automatically generates a summary of the chat history, 
+accessible via the `Chat.summary` property. This summary is created using 
+OpenAI's Chat Completions API and provides a concise overview of the 
+conversation. Note that when a new chat is started, the default summary is 
+"New Chat." When there is enough context in the chat history, the summary 
+will be automatically generated. Once the summary is generated, it will not 
+change.
 
 ## Storage Management
 
