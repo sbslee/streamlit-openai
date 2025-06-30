@@ -583,7 +583,7 @@ conversation. Note that when a new chat is started, the default summary is
 will be automatically generated. Once the summary is generated, it will not 
 change.
 
-## Toeken Usage
+## Token Usage
 
 The `Chat` class offers the `Chat.input_tokens` and `Chat.output_tokens` 
 properties to monitor token usage during a chat session. These properties 
