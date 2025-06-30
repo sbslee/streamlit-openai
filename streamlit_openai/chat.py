@@ -122,6 +122,8 @@ class Chat():
         self.allow_web_search = allow_web_search
         self.allow_image_generation = allow_image_generation
         self.summary = "New Chat"
+        self.input_tokens = 0
+        self.output_tokens = 0
         self._client = openai.OpenAI(api_key=self.api_key)
         self._temp_dir = tempfile.TemporaryDirectory()
         self._selected_example = None
@@ -341,6 +343,8 @@ class Chat():
         for event1 in events1:
             if event1.type == "response.completed":
                 self._previous_response_id = event1.response.id
+                self.input_tokens += event1.response.usage.input_tokens
+                self.output_tokens += event1.response.usage.output_tokens
             elif event1.type == "response.output_text.delta":
                 self.last_section.update_and_stream("text", event1.delta)
                 self.last_section.last_block.content = re.sub(r"!?\[([^\]]+)\]\(sandbox:/mnt/data/([^\)]+)\)", r"\1 (`\2`)", self.last_section.last_block.content)
