@@ -12,6 +12,11 @@ DEVELOPER_MESSAGE = """
 - When a custom function is called with a file path as its input, you must use the local file path.
 """
 
+CHAT_HISTORY_INSTRUCTIONS = """
+- This conversation was loaded from a chat history file.
+- All input files uploaded so far were actually provided previously, so you should not treat them as new uploads.
+"""
+
 CODE_INTERPRETER_EXTENSIONS = [
     ".c", ".cs", ".cpp", ".csv", ".doc", ".docx", ".html", 
     ".java", ".json", ".md", ".pdf", ".php", ".pptx", ".py", 
@@ -326,6 +331,7 @@ class Chat():
                             filename=block["filename"],
                             file_id=block["file_id"]
                         ))
+            chat._input.append({"role": "developer", "content": CHAT_HISTORY_INSTRUCTIONS})
         return chat
 
     def respond(self, prompt) -> None:
