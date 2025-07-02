@@ -52,6 +52,10 @@ MIME_TYPES = {
     "gz"  : "application/gzip",
     "xls" : "application/vnd.ms-excel",
     "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "doc" : "application/msword",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "ppt" : "application/vnd.ms-powerpoint",
+    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
 
 SUMMARY_INSTRUCTIONS = """
