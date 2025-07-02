@@ -50,6 +50,8 @@ MIME_TYPES = {
     "zip" : "application/zip",
     "tar" : "application/x-tar",
     "gz"  : "application/gzip",
+    "xls" : "application/vnd.ms-excel",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
 
 SUMMARY_INSTRUCTIONS = """
