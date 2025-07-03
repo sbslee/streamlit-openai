@@ -1,6 +1,6 @@
 import streamlit as st
 import openai
-import os, json, re, tempfile, zipfile, time, base64
+import os, json, re, tempfile, zipfile, time, base64, shutil
 from pathlib import Path
 from typing import Optional, List, Union, Literal, Dict, Any
 from .utils import CustomFunction, RemoteMCP
@@ -10,6 +10,11 @@ DEVELOPER_MESSAGE = """
 - Use GitHub-flavored Markdown in your response, including tables, images, URLs, code blocks, and lists.
 - Wrap all mathematical expressions and LaTeX terms in `$...$` for inline math and `$$...$$` for display math.
 - When a custom function is called with a file path as its input, you must use the local file path.
+"""
+
+CHAT_HISTORY_INSTRUCTIONS = """
+- This conversation was loaded from a chat history file.
+- All input files uploaded so far were actually provided previously, so you should not treat them as new uploads.
 """
 
 CODE_INTERPRETER_EXTENSIONS = [
@@ -45,7 +50,20 @@ MIME_TYPES = {
     "zip" : "application/zip",
     "tar" : "application/x-tar",
     "gz"  : "application/gzip",
+    "xls" : "application/vnd.ms-excel",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "doc" : "application/msword",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "ppt" : "application/vnd.ms-powerpoint",
+    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
+
+SUMMARY_INSTRUCTIONS = """
+- Your task is to provide a very concise summary (four words or fewer in English, or the equivalent in other languages) of the given conversation.
+- Do not include periods at the end of the summary.
+- Use title case for the summary.
+- If the conversation history does not provide enough information to summarize, return "New Chat".
+"""
 
 class Chat():
     """A Streamlit-based chat interface powered by OpenAI's Responses API."""
@@ -114,6 +132,9 @@ class Chat():
         self.allow_file_search = allow_file_search
         self.allow_web_search = allow_web_search
         self.allow_image_generation = allow_image_generation
+        self.summary = "New Chat"
+        self.input_tokens = 0
+        self.output_tokens = 0
         self._client = openai.OpenAI(api_key=self.api_key)
         self._temp_dir = tempfile.TemporaryDirectory()
         self._selected_example = None
@@ -122,6 +143,7 @@ class Chat():
         self._previous_response_id = None
         self._container_id = None
         self._sections = []
+        self._static_files = []
         self._tracked_files = []
         self._download_button_key = 0
         self._dynamic_vector_store = None
@@ -175,18 +197,67 @@ class Chat():
         # If files are uploaded statically, create tracked files for them
         if self.uploaded_files is not None:
             for uploaded_file in self.uploaded_files:
-                self.track(uploaded_file)
+                shutil.copy(uploaded_file, self._temp_dir.name)
+                self.track(os.path.join(self._temp_dir.name, os.path.basename(uploaded_file)))
+                self._static_files.append(self._tracked_files[-1])
 
     @property
     def last_section(self) -> Optional["Section"]:
         """Returns the last section of the chat."""
         return self._sections[-1] if self._sections else None
 
+    def summarize(self) -> None:
+        """Update the chat summary."""
+        sections = []
+        for section in self._sections:
+            s = {"role": section.role, "blocks": []}
+            for block in section.blocks:
+                if block.category in ["text", "code", "reasoning"]:
+                    content = block.content
+                else:
+                    content = "Bytes"
+                s["blocks"].append({
+                    "category": block.category,
+                    "content": content,
+                    "filename": block.filename,
+                    "file_id": block.file_id
+                })
+            sections.append(s)
+        if sections:
+            result = self._client.chat.completions.create(
+                model="gpt-4o",
+                temperature=0.001,
+                messages=[
+                    {"role": "developer", "content": SUMMARY_INSTRUCTIONS},
+                    {"role": "user", "content": json.dumps(sections, indent=4)}
+                ]
+            )
+            self.summary = result.choices[0].message.content
+
     def save(self, file_path: str) -> None:
         """Saves the chat history to a ZIP file."""
         if not file_path.endswith(".zip"):
             raise ValueError("File path must end with .zip")
         with tempfile.TemporaryDirectory() as t:
+            sections = []
+            for section in self._sections:
+                s = {"role": section.role, "blocks": []}
+                for block in section.blocks:
+                    if block.category in ["text", "code", "reasoning"]:
+                        content = block.content
+                    else:
+                        with open(f"{t}/{block.file_id}-{block.filename}", "wb") as f:
+                            f.write(block.content)
+                        content = "Bytes"
+                    s["blocks"].append({
+                        "category": block.category,
+                        "content": content,
+                        "filename": block.filename,
+                        "file_id": block.file_id
+                    })
+                sections.append(s)
+            for static_file in self._static_files:
+                shutil.copy(static_file._file_path, t)
             data = {
                 "model": self.model,
                 "instructions": self.instructions,
@@ -204,7 +275,7 @@ class Chat():
                 "allow_file_search": self.allow_file_search,
                 "allow_web_search": self.allow_web_search,
                 "allow_image_generation": self.allow_image_generation,
-                "sections": [section.save(t) for section in self._sections],
+                "sections": sections,
             }
             with open(f"{t}/data.json", "w") as f:
                 json.dump(data, f, indent=4)
@@ -232,7 +303,7 @@ class Chat():
                 instructions=data["instructions"],
                 temperature=data["temperature"],
                 accept_file=data["accept_file"],
-                uploaded_files=data["uploaded_files"],
+                uploaded_files=None if data["uploaded_files"] is None else [f"{dir_path}/{os.path.basename(x)}" for x in data["uploaded_files"]],
                 user_avatar=data["user_avatar"],
                 assistant_avatar=data["assistant_avatar"],
                 placeholder=data["placeholder"],
@@ -266,6 +337,7 @@ class Chat():
                             filename=block["filename"],
                             file_id=block["file_id"]
                         ))
+            chat._input.append({"role": "developer", "content": CHAT_HISTORY_INSTRUCTIONS})
         return chat
 
     def respond(self, prompt) -> None:
@@ -301,6 +373,8 @@ class Chat():
         for event1 in events1:
             if event1.type == "response.completed":
                 self._previous_response_id = event1.response.id
+                self.input_tokens += event1.response.usage.input_tokens
+                self.output_tokens += event1.response.usage.output_tokens
             elif event1.type == "response.output_text.delta":
                 self.last_section.update_and_stream("text", event1.delta)
                 self.last_section.last_block.content = re.sub(r"!?\[([^\]]+)\]\(sandbox:/mnt/data/([^\)]+)\)", r"\1 (`\2`)", self.last_section.last_block.content)
@@ -425,6 +499,8 @@ class Chat():
                         blocks=[self.create_block("text", self._selected_example)]
                     )
                     self.respond(self._selected_example)
+        if self.summary == "New Chat":
+            self.summarize()
 
     def handle_files(self, uploaded_files) -> None:
         """Handles uploaded files."""
@@ -626,21 +702,6 @@ class Chat():
             elif self.category == "upload":
                 st.markdown(f":material/attach_file: `{self.filename}`")
 
-        def save(self, t) -> Dict[str, Any]:
-            """Converts the block to a dictionary representation."""
-            if self.category in ["text", "code", "reasoning"]:
-                content = self.content
-            elif self.category in ["image", "generated_image", "download", "upload"]:
-                with open(f"{t}/{self.file_id}-{self.filename}", "wb") as f:
-                    f.write(self.content)
-                content = "Bytes"
-            return {
-                "category": self.category,
-                "content": content,
-                "filename": self.filename,
-                "file_id": self.file_id,
-            }
-
     def create_block(self, category, content=None, filename=None, file_id=None) -> "Block":
         """Creates a new Block object."""
         return self.Block(
@@ -715,16 +776,6 @@ class Chat():
             """Renders the section content using Streamlit's delta generator."""
             with self.delta_generator:
                 self.write()
-
-        def save(self, t) -> Dict[str, Any]:
-            """Converts the section to a dictionary representation."""
-            if self.empty:
-                return {}
-            else:
-                return {
-                    "role": self.role,
-                    "blocks": [block.save(t) for block in self.blocks],
-                }
 
     def create_section(self, role, blocks=None) -> "Section":
         """Creates a new Section object."""

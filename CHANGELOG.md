@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.1.4 (2025-07-03)
+* Chat history now supports statistically uploaded files.
+* The chat summary is now automatically generated as `Chat.summary`.
+* Token usage is now tracked as `Chat.input_tokens` and `Chat.output_tokens`.
+* Add new MIME types (xls, xlsx, doc, docx, ppt, and pptx).
+
 ## 0.1.3 (2025-06-25)
 * Chat history now supports images, downloads, and uploads.
 * Images supported by the code interpreter are no longer uploaded twice.
