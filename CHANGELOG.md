@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 0.1.4 (in development)
+## 0.1.4 (2025-07-03)
 * Chat history now supports statistically uploaded files.
 * The chat summary is now automatically generated as `Chat.summary`.
 * Token usage is now tracked as `Chat.input_tokens` and `Chat.output_tokens`.
