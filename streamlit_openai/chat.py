@@ -59,12 +59,12 @@ MIME_TYPES = {
 }
 
 SUMMARY_INSTRUCTIONS = """
-- Your task is to provide a very concise summary.
-- The summary must be in English, four words or fewer, describing the given conversation.
+- Your task is to provide a very concise summary of the conversation history provided by the user.
+- The summary must be in English, four words or fewer.
 - Do not include a period at the end of the summary.
 - Use title case for the summary.
-- If the conversation history lacks enough context to summarize (for example, if it only says “Hi”), return "New Chat".
-- If the conversation is not in English, the summary must be in the same language. For example, if the conversation is in Korean, return a summary in Korean. The only exception is when the conversation is new and has no meaningful context, in which case you should return "New Chat" in English.
+- If the conversation history lacks enough context to summarize (for example, if it only includes greetings such as “Hi” or “How can I help you today?”), return "New Chat".
+- If the conversation is not in English, the summary must be in the same language. For example, if the conversation is in Korean (e.g., "미국 여행 계획을 도와주세요."), return a summary in Korean (e.g., "미국 여행 계획"). The only exception is when the conversation is new and has no meaningful context, in which case you should return "New Chat" in English. Never return "New Chat" in any other language (e.g., "새로운 대화").
 - The special keyword "New Chat" indicates that the conversation is new and has no meaningful context. Always return "New Chat" in English, even if the conversation itself is in another language.
 """
 
