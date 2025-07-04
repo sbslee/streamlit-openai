@@ -59,10 +59,12 @@ MIME_TYPES = {
 }
 
 SUMMARY_INSTRUCTIONS = """
-- Your task is to provide a very concise summary (four words or fewer in English, or the equivalent in other languages) of the given conversation.
-- Do not include periods at the end of the summary.
+- Your task is to provide a very concise summary.
+- The summary should be four words or fewer in English of the given conversation.
+- If the conversation is not in English, the summary should be in the same language.
+- Do not include a period at the end of the summary.
 - Use title case for the summary.
-- If the conversation history does not provide enough information to summarize, return "New Chat".
+- If the conversation history does not provide enough information to summarize, return "New Chat" even if the conversation is not in English.
 """
 
 class Chat():
