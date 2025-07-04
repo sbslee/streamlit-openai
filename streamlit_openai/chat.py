@@ -60,11 +60,12 @@ MIME_TYPES = {
 
 SUMMARY_INSTRUCTIONS = """
 - Your task is to provide a very concise summary.
-- The summary should be four words or fewer in English of the given conversation.
-- If the conversation is not in English, the summary should be in the same language.
+- The summary must be in English, four words or fewer, describing the given conversation.
 - Do not include a period at the end of the summary.
 - Use title case for the summary.
-- If the conversation history does not provide enough information to summarize, return "New Chat" even if the conversation is not in English.
+- If the conversation history lacks enough context to summarize (for example, if it only says “Hi”), return "New Chat".
+- If the conversation is not in English, the summary must be in the same language. For example, if the conversation is in Korean, return a summary in Korean. The only exception is when the conversation is new and has no meaningful context, in which case you should return "New Chat" in English.
+- The special keyword "New Chat" indicates that the conversation is new and has no meaningful context. Always return "New Chat" in English, even if the conversation itself is in another language.
 """
 
 class Chat():
