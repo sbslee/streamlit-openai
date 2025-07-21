@@ -347,20 +347,6 @@ class Chat():
         """Sends the user prompt to the assistant and streams the response."""
         self._input.append({"role": "user", "content": prompt})
         self.add_section("assistant")
-        if self.allow_code_interpreter:
-            result = self._client.containers.retrieve(container_id=self._container_id)
-            if result.status == "expired":
-                container = self._client.containers.create(name="streamlit-openai")
-                self._container_id = container.id
-                for tracked_file in self._tracked_files:
-                    if tracked_file._is_container_file:
-                        self._client.containers.files.create(
-                            container_id=self._container_id,
-                            file_id=tracked_file._openai_file.id,
-                        )
-            for tool in self._tools:
-                if tool["type"] == "code_interpreter":
-                    tool["container"] = self._container_id
         events1 = self._client.responses.create(
             model=self.model,
             input=self._input,
@@ -450,6 +436,20 @@ class Chat():
 
     def run(self, uploaded_files=None) -> None:
         """Runs the main assistant loop."""
+        if self.allow_code_interpreter:
+            result = self._client.containers.retrieve(container_id=self._container_id)
+            if result.status == "expired":
+                container = self._client.containers.create(name="streamlit-openai")
+                self._container_id = container.id
+                for tracked_file in self._tracked_files:
+                    if tracked_file._is_container_file:
+                        self._client.containers.files.create(
+                            container_id=self._container_id,
+                            file_id=tracked_file._openai_file.id,
+                        )
+            for tool in self._tools:
+                if tool["type"] == "code_interpreter":
+                    tool["container"] = self._container_id
         if self.info_message is not None:
             st.info(self.info_message)
         for section in self._sections:
