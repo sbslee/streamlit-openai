@@ -213,6 +213,8 @@ class Chat():
         """Update the chat summary."""
         sections = []
         for section in self._sections:
+            if section.empty:
+                continue
             s = {"role": section.role, "blocks": []}
             for block in section.blocks:
                 if block.category in ["text", "code", "reasoning"]:
