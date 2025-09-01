@@ -3,6 +3,7 @@
 ## 0.1.5 (in development)
 * The chat summary feature now supports multiple languages.
 * Fix a bug preventing expired containers from being replaced correctly.
+* [#22](https://github.com/sbslee/streamlit-openai/issues/22): Fix a bug preventing `.tsv` file uploads.
 
 ## 0.1.4 (2025-07-03)
 * Chat history now supports statistically uploaded files.

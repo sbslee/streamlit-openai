@@ -20,7 +20,7 @@ CHAT_HISTORY_INSTRUCTIONS = """
 CODE_INTERPRETER_EXTENSIONS = [
     ".c", ".cs", ".cpp", ".csv", ".doc", ".docx", ".html", 
     ".java", ".json", ".md", ".pdf", ".php", ".pptx", ".py", 
-    ".rb", ".tex", ".txt", ".css", ".js", ".sh", ".ts", ".csv", 
+    ".rb", ".tex", ".txt", ".css", ".js", ".sh", ".ts", ".tsv", 
     ".jpeg", ".jpg", ".gif", ".pkl", ".png", ".tar", ".xlsx", 
     ".xml", ".zip"
 ]
