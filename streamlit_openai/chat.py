@@ -91,7 +91,7 @@ class Chat():
         allow_file_search: Optional[bool] = True,
         allow_web_search: Optional[bool] = True,
         allow_image_generation: Optional[bool] = True,
-        effort: Optional[Literal["none", "low", "medium", "high", "xhigh"]] = None,
+        effort: Optional[Literal["none", "minimal", "low", "medium", "high", "xhigh"]] = None,
         verbosity: Optional[Literal["low", "medium", "high"]] = None,
     ) -> None:
         """
