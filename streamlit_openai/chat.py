@@ -91,6 +91,8 @@ class Chat():
         allow_file_search: Optional[bool] = True,
         allow_web_search: Optional[bool] = True,
         allow_image_generation: Optional[bool] = True,
+        effort: Optional[Literal["none", "low", "medium", "high", "xhigh"]] = None,
+        verbosity: Optional[Literal["low", "medium", "high"]] = None,
     ) -> None:
         """
         Initializes a Chat instance.
@@ -115,6 +117,8 @@ class Chat():
             allow_file_search (bool): Whether to allow file search functionality (default: True).
             allow_web_search (bool): Whether to allow web search functionality (default: True).
             allow_image_generation (bool): Whether to allow image generation functionality (default: True).
+            effort (str): The reasoning depth ("none", "low", "medium", "high", "xhigh"). Omitted from requests unless explicitly set.
+            verbosity (str): The level of output verbosity ("low", "medium", "high"). Omitted from requests unless explicitly set.
         """
         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
         self.model = model
@@ -136,6 +140,8 @@ class Chat():
         self.allow_web_search = allow_web_search
         self.allow_image_generation = allow_image_generation
         self.summary = "New Chat"
+        self.effort = effort
+        self.verbosity = verbosity
         self.input_tokens = 0
         self.output_tokens = 0
         self._client = openai.OpenAI(api_key=self.api_key)
@@ -280,6 +286,8 @@ class Chat():
                 "allow_file_search": self.allow_file_search,
                 "allow_web_search": self.allow_web_search,
                 "allow_image_generation": self.allow_image_generation,
+                "effort": self.effort,
+                "verbosity": self.verbosity,
                 "sections": sections,
             }
             with open(f"{t}/data.json", "w") as f:
@@ -319,6 +327,8 @@ class Chat():
                 allow_file_search=data["allow_file_search"],
                 allow_web_search=data["allow_web_search"],
                 allow_image_generation=data["allow_image_generation"],
+                effort=data.get("effort", None),
+                verbosity=data.get("verbosity", None),
             )
             for section in data["sections"]:
                 chat.add_section(section["role"], blocks=[])
@@ -349,6 +359,13 @@ class Chat():
         """Sends the user prompt to the assistant and streams the response."""
         self._input.append({"role": "user", "content": prompt})
         self.add_section("assistant")
+
+        kwargs = {"reasoning": {"summary": "auto"}}
+        if self.effort is not None:
+            kwargs["reasoning"]["effort"] = self.effort
+        if self.verbosity is not None:
+            kwargs["text"] = {"verbosity": self.verbosity}
+        
         events1 = self._client.responses.create(
             model=self.model,
             input=self._input,
@@ -357,7 +374,7 @@ class Chat():
             tools=self._tools,
             previous_response_id=self._previous_response_id,
             stream=True,
-            reasoning={"summary": "auto"},
+            **kwargs,
         )
         self._input = []
         tool_calls = {}
